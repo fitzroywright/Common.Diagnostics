@@ -1,3 +1,6 @@
+using Common.Diagnostics;
+using Xunit;
+
 namespace Common.Diagnostics.UnitTests;
 
 public sealed class StandardDependencyChecksTests
