@@ -8,6 +8,25 @@ Reusable .NET 10 diagnostics and engineering-readiness infrastructure for the FF
 
 Use `IDiagnosticCheck` and `IDiagnosticRunner` for small reusable health/readiness checks such as HTTP endpoints and infrastructure probes.
 
+Reusable checks now include:
+
+- `TcpEndpointDiagnosticCheck` for PostgreSQL, SQL Server, LDAP/AD, SMB endpoints, and other TCP dependencies.
+- `HttpEndpointDiagnosticCheck` for OpenBao, Microsoft Graph, web APIs, messaging webhooks, and other HTTP dependencies.
+- `FileSystemDiagnosticCheck` for local and NAS storage read/read-write validation.
+- `DelegateDiagnosticCheck` for adapting provider-specific checks such as Common.Secrets health, S3 storage, application messaging, and Active Directory binds without duplicating runner behavior.
+
+### Standard dependency catalogue
+
+Applications should register dependencies in this order when applicable:
+
+1. PostgreSQL/database connectivity.
+2. OpenBao and Common.Secrets provider health/resolution.
+3. Common.Storage targets: local/NAS/S3.
+4. Microsoft Graph and messaging transports.
+5. Active Directory/directory services.
+
+Checks must never include secret values, bearer tokens, passwords, full sensitive connection strings, or document contents in diagnostic messages.
+
 ### Engineering diagnostics
 
 Use the engineering diagnostics API for auditable Level 5 through Level 1 diagnostic runs:
