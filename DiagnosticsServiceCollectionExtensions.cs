@@ -8,6 +8,7 @@ public static class DiagnosticsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<IDiagnosticRunner, DiagnosticRunner>();
+        services.AddSingleton<IEngineeringDiagnosticRunStore, JsonEngineeringDiagnosticRunStore>();
         return services;
     }
 
