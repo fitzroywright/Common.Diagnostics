@@ -5,12 +5,12 @@ using Xunit;
 public sealed class DiagnosticLevelTests
 {
     [Theory]
-    [InlineData(DiagnosticLevel.Level1, 1)]
-    [InlineData(DiagnosticLevel.Level2, 2)]
+    [InlineData(DiagnosticLevel.Level1, 5)]
+    [InlineData(DiagnosticLevel.Level2, 4)]
     [InlineData(DiagnosticLevel.Level3, 3)]
-    [InlineData(DiagnosticLevel.Level4, 4)]
-    [InlineData(DiagnosticLevel.Level5, 5)]
-    public async Task RequestedLevelIncludesAllLowerLevels(DiagnosticLevel level, int expected)
+    [InlineData(DiagnosticLevel.Level4, 2)]
+    [InlineData(DiagnosticLevel.Level5, 1)]
+    public async Task RequestedLevelIncludesAllLessIntensiveChecks(DiagnosticLevel level, int expected)
     {
         IDiagnosticCheck[] checks =
         [
@@ -28,14 +28,14 @@ public sealed class DiagnosticLevelTests
     }
 
     [Fact]
-    public void DefinitionsRunFromLevel5ToLevel1AndHaveOperationalMeaning()
+    public void DefinitionsUseLevel1AsDeepestAndLevel5AsQuickest()
     {
-        Assert.Equal("Full System Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level5].Name);
-        Assert.Contains("Disaster recovery readiness", DiagnosticLevels.Definitions[DiagnosticLevel.Level5].Capabilities);
-        Assert.Equal("Integration Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level4].Name);
+        Assert.Equal("Full System Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Name);
+        Assert.Contains("Disaster recovery readiness", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Capabilities);
+        Assert.Equal("Integration Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level2].Name);
         Assert.Equal("System Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level3].Name);
-        Assert.Equal("Component Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level2].Name);
-        Assert.Equal("Quick Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Name);
+        Assert.Equal("Component Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level4].Name);
+        Assert.Equal("Quick Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level5].Name);
     }
 
     private sealed class TestCheck : ILeveledDiagnosticCheck
