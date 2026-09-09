@@ -10,6 +10,7 @@ public static class DiagnosticsServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<IDiagnosticRunner, DiagnosticRunner>();
+        services.AddScoped<ILeveledDiagnosticRunner, LeveledDiagnosticRunner>();
         services.AddSingleton<IEngineeringDiagnosticRunStore, JsonEngineeringDiagnosticRunStore>();
         services.AddSingleton<EngineeringDiagnosticEngine>();
 
@@ -18,6 +19,30 @@ public static class DiagnosticsServiceCollectionExtensions
         services.TryAddSingleton<IDiagnosticRetentionStore, JsonDiagnosticRetentionStore>();
         services.TryAddSingleton<IDiagnosticOperationsRouter, DiagnosticOperationsRouter>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddStandardDiagnosticTelemetry(
+        this IServiceCollection services,
+        GraylogTelemetryOptions? graylog = null,
+        WazuhTelemetryOptions? wazuh = null,
+        SlackTelemetryOptions? slack = null,
+        EmailTelemetryOptions? email = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddSingleton(graylog ?? new GraylogTelemetryOptions());
+        services.AddSingleton(wazuh ?? new WazuhTelemetryOptions());
+        services.AddSingleton(slack ?? new SlackTelemetryOptions());
+        services.AddSingleton(email ?? new EmailTelemetryOptions());
+        services.AddSingleton<GraylogDiagnosticTelemetryDestination>();
+        services.AddSingleton<IDiagnosticTelemetryDestination>(provider => provider.GetRequiredService<GraylogDiagnosticTelemetryDestination>());
+        services.AddHttpClient<WazuhDiagnosticTelemetryDestination>();
+        services.AddSingleton<IDiagnosticTelemetryDestination>(provider => provider.GetRequiredService<WazuhDiagnosticTelemetryDestination>());
+        services.AddHttpClient<SlackDiagnosticTelemetryDestination>();
+        services.AddSingleton<IDiagnosticTelemetryDestination>(provider => provider.GetRequiredService<SlackDiagnosticTelemetryDestination>());
+        services.AddSingleton<EmailDiagnosticTelemetryDestination>();
+        services.AddSingleton<IDiagnosticTelemetryDestination>(provider => provider.GetRequiredService<EmailDiagnosticTelemetryDestination>());
         return services;
     }
 
