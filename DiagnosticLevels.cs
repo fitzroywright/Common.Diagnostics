@@ -22,14 +22,14 @@ public static class DiagnosticLevels
         {
             [DiagnosticLevel.Level1] = new(
                 DiagnosticLevel.Level1,
-                "Quick Diagnostics",
-                "Fast startup and heartbeat verification.",
-                ["Basic health", "Service heartbeat", "Critical dependencies", "Configuration sanity"]),
+                "Full System Diagnostics",
+                "Deep engineering sweep of the complete system.",
+                ["All components", "Deep dependencies", "Security validation", "Performance analysis", "Disaster recovery readiness"]),
             [DiagnosticLevel.Level2] = new(
                 DiagnosticLevel.Level2,
-                "Component Diagnostics",
-                "Focused checks for individual components and resources.",
-                ["Component tests", "API health", "Secret provider health", "Messaging queue health", "Resource utilization"]),
+                "Integration Diagnostics",
+                "Cross-component and external integration verification.",
+                ["Cross-component tests", "Messaging and Secrets", "External connectivity", "Telemetry pipeline", "End-to-end scenarios", "Failover simulation"]),
             [DiagnosticLevel.Level3] = new(
                 DiagnosticLevel.Level3,
                 "System Diagnostics",
@@ -37,19 +37,19 @@ public static class DiagnosticLevels
                 ["Core system health", "Service dependencies", "Authentication", "Data stores", "Certificates"]),
             [DiagnosticLevel.Level4] = new(
                 DiagnosticLevel.Level4,
-                "Integration Diagnostics",
-                "Cross-component and external integration verification.",
-                ["Cross-component tests", "Messaging and Secrets", "External connectivity", "Telemetry pipeline", "End-to-end scenarios", "Failover simulation"]),
+                "Component Diagnostics",
+                "Focused checks for individual components and resources.",
+                ["Component tests", "API health", "Secret provider health", "Messaging queue health", "Resource utilization"]),
             [DiagnosticLevel.Level5] = new(
                 DiagnosticLevel.Level5,
-                "Full System Diagnostics",
-                "Deep engineering sweep of the complete system.",
-                ["All components", "Deep dependencies", "Security validation", "Performance analysis", "Disaster recovery readiness"])
+                "Quick Diagnostics",
+                "Fast startup and heartbeat verification.",
+                ["Basic health", "Service heartbeat", "Critical dependencies", "Configuration sanity"])
         };
 
     public static bool Includes(DiagnosticLevel requested, DiagnosticLevel checkLevel)
     {
-        return checkLevel <= requested;
+        return checkLevel >= requested;
     }
 }
 
