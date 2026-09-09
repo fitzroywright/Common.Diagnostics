@@ -10,6 +10,7 @@ public static class DiagnosticsServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<IDiagnosticRunner, DiagnosticRunner>();
+        services.AddScoped<ILeveledDiagnosticRunner, LeveledDiagnosticRunner>();
         services.AddSingleton<IEngineeringDiagnosticRunStore, JsonEngineeringDiagnosticRunStore>();
         services.AddSingleton<EngineeringDiagnosticEngine>();
 
