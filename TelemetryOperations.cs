@@ -145,26 +145,112 @@ public sealed class DiagnosticOperationsRouter : IDiagnosticOperationsRouter
 
     public async Task RouteAsync(DiagnosticTelemetryEvent telemetryEvent, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(telemetryEvent);
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (!options.Rules.TryGetValue(telemetryEvent.Severity, out DiagnosticEscalationRule? rule))
         {
             return;
         }
 
-        await retentionStore.AppendAsync(telemetryEvent, telemetryEvent.Timestamp.Add(rule.Retention), cancellationToken).ConfigureAwait(false);
+        await TryRetainAsync(telemetryEvent, rule, cancellationToken).ConfigureAwait(false);
 
-        if (await suppressionStore.ShouldSuppressAsync(telemetryEvent, rule.SuppressionWindow, cancellationToken).ConfigureAwait(false))
+        if (await TryShouldSuppressAsync(telemetryEvent, rule, cancellationToken).ConfigureAwait(false))
         {
             return;
         }
 
+        bool delivered = false;
         foreach (string destinationName in rule.Destinations)
         {
-            if (destinations.TryGetValue(destinationName, out IDiagnosticTelemetryDestination? destination))
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!destinations.TryGetValue(destinationName, out IDiagnosticTelemetryDestination? destination))
+            {
+                continue;
+            }
+
+            try
             {
                 await destination.WriteAsync(telemetryEvent, cancellationToken).ConfigureAwait(false);
+                delivered = true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Diagnostics is deliberately best-effort. One failed transport must not
+                // fail the application operation that emitted telemetry or block other destinations.
             }
         }
 
-        await suppressionStore.MarkSentAsync(telemetryEvent, cancellationToken).ConfigureAwait(false);
+        if (delivered)
+        {
+            await TryMarkSentAsync(telemetryEvent, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task TryRetainAsync(
+        DiagnosticTelemetryEvent telemetryEvent,
+        DiagnosticEscalationRule rule,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await retentionStore.AppendAsync(
+                telemetryEvent,
+                telemetryEvent.Timestamp.Add(rule.Retention),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Retention failure must not disable live diagnostics delivery.
+        }
+    }
+
+    private async Task<bool> TryShouldSuppressAsync(
+        DiagnosticTelemetryEvent telemetryEvent,
+        DiagnosticEscalationRule rule,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await suppressionStore.ShouldSuppressAsync(
+                telemetryEvent,
+                rule.SuppressionWindow,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Fail open for telemetry: if suppression state is unavailable, attempt delivery.
+            return false;
+        }
+    }
+
+    private async Task TryMarkSentAsync(
+        DiagnosticTelemetryEvent telemetryEvent,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await suppressionStore.MarkSentAsync(telemetryEvent, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Delivery already occurred. Suppression persistence failure must not surface to the application.
+        }
     }
 }
