@@ -1,6 +1,10 @@
 # Common.Diagnostics
 
-Reusable .NET 10 diagnostics and engineering-readiness infrastructure for the FFP application family.
+Reusable .NET 10 diagnostics and engineering-readiness infrastructure for the application family.
+
+## Repository policy
+
+`main` is the authoritative trunk and the only branch that should be used for ongoing development, integration, packaging, and releases. Older feature/integration branches are historical once their work has been incorporated into `main`.
 
 ## Two complementary layers
 
@@ -8,7 +12,7 @@ Reusable .NET 10 diagnostics and engineering-readiness infrastructure for the FF
 
 Use `IDiagnosticCheck` and `IDiagnosticRunner` for small reusable health/readiness checks such as HTTP endpoints and infrastructure probes.
 
-Reusable checks now include:
+Reusable checks include:
 
 - `TcpEndpointDiagnosticCheck` for PostgreSQL, SQL Server, LDAP/AD, SMB endpoints, and other TCP dependencies.
 - `HttpEndpointDiagnosticCheck` for OpenBao, Microsoft Graph, web APIs, messaging webhooks, and other HTTP dependencies.
@@ -39,15 +43,19 @@ Use the engineering diagnostics API for auditable Level 5 through Level 1 diagno
 - `JsonEngineeringDiagnosticRunStore`
 - `EngineeringDiagnosticsHtml`
 
+The level order is deliberate: Level 5 is the quickest/lightest diagnostic level and Level 1 is the deepest/full-system level. Deeper runs are cumulative according to engineering diagnostic policy.
+
 `EngineeringDiagnosticEngine` owns level filtering, failure isolation, intervention gates, status aggregation, run creation, and persistence. Applications supply only their application-specific diagnostic check definitions.
 
 ## Ownership boundary
 
-Common.Diagnostics should contain reusable diagnostics mechanics and checks that apply to more than one application. It should not know about application-specific business concepts.
+Common.Diagnostics contains reusable diagnostic mechanics and checks that apply to more than one application. It does not own application-specific business concepts.
 
-For example, Cafeteria retains checks for its funding policy, FFP employee/holiday sources, publication backlog, service database, and service-event stream. Those checks are passed to the Common engineering engine.
+For example, Cafeteria retains checks for its funding policy, employee/holiday sources, publication backlog, service database, and service-event stream. Those checks are passed to the Common engineering engine.
 
-This keeps application knowledge in the host while ensuring diagnostic policy, persistence, UI, and orchestration behave consistently across applications.
+`Aegis.Diagnostics` is the top-level operator/orchestration application. `Common.Diagnostics` remains the reusable engine and wire-contract library consumed by applications.
+
+This keeps application knowledge in each host while ensuring diagnostic policy, persistence, UI contracts, and orchestration behave consistently across applications.
 
 ## Dependency injection
 
@@ -66,3 +74,7 @@ services.AddDiagnosticCheck<MyDiagnosticCheck>();
 ## Safety
 
 Level 2 and Level 1 runs are intervention gates. A diagnostic run gathers and records evidence but does not automatically perform destructive repair actions.
+
+## Current maturity
+
+The reusable diagnostics engine, contracts, persistence, safety policy, and integration hooks are implemented. Remaining work is primarily runtime proof: exercise Level 5 through Level 1 against real consumers, deliberately introduce controlled failures, verify accurate non-green reporting, and complete cross-application regression testing.
