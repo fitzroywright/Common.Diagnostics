@@ -43,7 +43,7 @@ public sealed class FaultInjectionTests
         DiagnosticResult result = await check.RunAsync();
 
         Assert.Equal(DiagnosticStatus.Unhealthy, result.Status);
-        Assert.Contains("503", result.Message, StringComparison.Ordinal);
+        Assert.Contains("503", result.Message);
     }
 
     [Fact]
