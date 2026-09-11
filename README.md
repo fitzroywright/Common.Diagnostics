@@ -37,13 +37,22 @@ Use the engineering diagnostics API for auditable Level 5 through Level 1 diagno
 
 - `EngineeringDiagnosticLevel` and `EngineeringDiagnosticStatus`
 - `EngineeringDiagnosticCheckResult` and `EngineeringDiagnosticRun`
+- `EngineeringDiagnosticLifecycle` and `EngineeringDiagnosticLevelDefinition`
 - `EngineeringDiagnosticPolicy`
 - `EngineeringDiagnosticEngine`
 - `IEngineeringDiagnosticRunStore`
 - `JsonEngineeringDiagnosticRunStore`
 - `EngineeringDiagnosticsHtml`
 
-The level order is deliberate: Level 5 is the quickest/lightest diagnostic level and Level 1 is the deepest/full-system level. Deeper runs are cumulative according to engineering diagnostic policy.
+The engineering lifecycle is deliberate and preserves the Starfleet Engineering Protocol semantics:
+
+- **Level 5 — Scan:** fast baseline checks for service availability, dependencies, basic configuration, storage/database reachability, queues, and heartbeat state.
+- **Level 4 — Analysis:** deeper dependency and data-flow analysis, integration queues, external systems, configuration consistency, performance signals, and error history.
+- **Level 3 — Verification:** verify the suspected fault or verify recovery and capture supporting evidence.
+- **Level 2 — Repair:** controlled repair stage requiring an engineering reason, explicit authorization, and a registered safe action. A diagnostic run never performs destructive repair automatically.
+- **Level 1 — Critical Intervention:** emergency intervention requiring an engineering reason, explicit high-trust approval, full audit evidence, and a narrowly scoped intervention playbook.
+
+Escalation is evidence-driven and does not have to pass through every level sequentially. `EngineeringDiagnosticLifecycle` exposes the canonical definitions and escalation/de-escalation helpers so applications do not reinterpret level semantics independently.
 
 `EngineeringDiagnosticEngine` owns level filtering, failure isolation, intervention gates, status aggregation, run creation, and persistence. Applications supply only their application-specific diagnostic check definitions.
 
@@ -77,4 +86,4 @@ Level 2 and Level 1 runs are intervention gates. A diagnostic run gathers and re
 
 ## Current maturity
 
-The reusable diagnostics engine, contracts, persistence, safety policy, and integration hooks are implemented. Remaining work is primarily runtime proof: exercise Level 5 through Level 1 against real consumers, deliberately introduce controlled failures, verify accurate non-green reporting, and complete cross-application regression testing.
+The reusable diagnostics engine, contracts, persistence, safety policy, lifecycle metadata, and integration hooks are implemented. Remaining work is primarily runtime proof: exercise Level 5 through Level 1 against real consumers, deliberately introduce controlled failures, verify accurate non-green reporting, and complete cross-application regression testing.
