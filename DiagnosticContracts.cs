@@ -4,7 +4,8 @@ public enum DiagnosticStatus
 {
     Healthy = 0,
     Warning = 1,
-    Unhealthy = 2
+    Unhealthy = 2,
+    Unknown = 3
 }
 
 public sealed record DiagnosticResult(
@@ -15,6 +16,7 @@ public sealed record DiagnosticResult(
     Exception? Exception = null)
 {
     public bool IsHealthy => Status == DiagnosticStatus.Healthy;
+    public OperationalHealth Health => OperationalHealthMapping.From(Status);
 }
 
 public interface IDiagnosticCheck
