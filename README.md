@@ -1,70 +1,44 @@
 # Common.Diagnostics
 
-Reusable .NET 10 diagnostics and engineering-readiness infrastructure for the application family.
+Reusable .NET 10 operational and engineering diagnostics for the Aegis application family.
 
-## Repository policy
+## V1 ownership boundary
 
-`main` is the authoritative trunk and the only branch that should be used for ongoing development, integration, packaging, and releases. Older feature/integration branches are historical once their work has been incorporated into `main`.
+Aegis.Configuration answers **what an application requires and whether the application reports it configured**.
 
-## Two complementary layers
+Common.Diagnostics answers **whether the running application and its dependencies are working**. It must not become a second configuration service and must never expose secret values.
 
-### Operational diagnostics
+Applications are authoritative for their diagnostics. They run their own application-specific checks through Common.Diagnostics and expose/report the resulting operational state. Aegis.Diagnostics aggregates, stores, correlates and presents that state.
 
-Use `IDiagnosticCheck` and `IDiagnosticRunner` for small reusable health/readiness checks such as HTTP endpoints and infrastructure probes.
+All diagnostic publishers should use `DiagnosticApplicationIdentity` with the same `ApplicationId`, `SiteId`, `InstanceId` and `Version` used by Aegis.Configuration. The normalized V1 operational states are `Healthy`, `Degraded`, `Unhealthy` and `Unknown`.
 
-Reusable checks include:
+## Starfleet Engineering Protocols
 
-- `TcpEndpointDiagnosticCheck` for PostgreSQL, SQL Server, LDAP/AD, SMB endpoints, and other TCP dependencies.
-- `HttpEndpointDiagnosticCheck` for OpenBao, Microsoft Graph, web APIs, messaging webhooks, and other HTTP dependencies.
-- `FileSystemDiagnosticCheck` for local and NAS storage read/read-write validation.
-- `DelegateDiagnosticCheck` for adapting provider-specific checks such as Common.Secrets health, S3 storage, application messaging, and Active Directory binds without duplicating runner behavior.
+The existing Level 5 through Level 1 lifecycle is preserved:
 
-### Standard dependency catalogue
+- **Level 5 — Scan:** fast baseline health, heartbeat and critical dependency checks.
+- **Level 4 — Analysis:** deeper dependency, data-flow, performance and error-history analysis.
+- **Level 3 — Verification:** verify a suspected fault or verify recovery and capture evidence.
+- **Level 2 — Repair:** controlled repair stage requiring a reason, authorization and a registered safe action.
+- **Level 1 — Critical Intervention:** emergency intervention requiring high-trust approval, full audit evidence and a narrowly scoped playbook.
 
-Applications should register dependencies in this order when applicable:
+Lower numbers are deliberately more serious/deeper interventions. This ordering is retained for compatibility with the existing engineering engine and application implementations.
 
-1. PostgreSQL/database connectivity.
-2. OpenBao and Common.Secrets provider health/resolution.
-3. Common.Storage targets: local/NAS/S3.
-4. Microsoft Graph and messaging transports.
-5. Active Directory/directory services.
+## Reusable checks
 
-Checks must never include secret values, bearer tokens, passwords, full sensitive connection strings, or document contents in diagnostic messages.
+`IDiagnosticCheck` / `IDiagnosticRunner` support reusable operational checks. Standard checks include TCP, HTTP and file-system dependencies plus delegate checks for provider-specific diagnostics. Applications retain their own business-specific checks.
 
-### Engineering diagnostics
+Checks and evidence must never include secret values, bearer tokens, passwords, full sensitive connection strings or document contents.
 
-Use the engineering diagnostics API for auditable Level 5 through Level 1 diagnostic runs:
+## Engineering diagnostics
 
-- `EngineeringDiagnosticLevel` and `EngineeringDiagnosticStatus`
-- `EngineeringDiagnosticCheckResult` and `EngineeringDiagnosticRun`
-- `EngineeringDiagnosticLifecycle` and `EngineeringDiagnosticLevelDefinition`
-- `EngineeringDiagnosticPolicy`
-- `EngineeringDiagnosticEngine`
-- `IEngineeringDiagnosticRunStore`
-- `JsonEngineeringDiagnosticRunStore`
-- `EngineeringDiagnosticsHtml`
+The engineering layer includes `EngineeringDiagnosticLevel`, `EngineeringDiagnosticStatus`, `EngineeringDiagnosticRun`, `EngineeringDiagnosticLifecycle`, `EngineeringDiagnosticPolicy`, `EngineeringDiagnosticEngine`, `IEngineeringDiagnosticRunStore`, `JsonEngineeringDiagnosticRunStore` and the engineering HTML renderer.
 
-The engineering lifecycle is deliberate and preserves the Starfleet Engineering Protocol semantics:
+History is intentional in Diagnostics. Operational incidents and engineering runs are useful evidence and should be retained according to the configured retention policy.
 
-- **Level 5 — Scan:** fast baseline checks for service availability, dependencies, basic configuration, storage/database reachability, queues, and heartbeat state.
-- **Level 4 — Analysis:** deeper dependency and data-flow analysis, integration queues, external systems, configuration consistency, performance signals, and error history.
-- **Level 3 — Verification:** verify the suspected fault or verify recovery and capture supporting evidence.
-- **Level 2 — Repair:** controlled repair stage requiring an engineering reason, explicit authorization, and a registered safe action. A diagnostic run never performs destructive repair automatically.
-- **Level 1 — Critical Intervention:** emergency intervention requiring an engineering reason, explicit high-trust approval, full audit evidence, and a narrowly scoped intervention playbook.
+## Aegis.Diagnostics
 
-Escalation is evidence-driven and does not have to pass through every level sequentially. `EngineeringDiagnosticLifecycle` exposes the canonical definitions and escalation/de-escalation helpers so applications do not reinterpret level semantics independently.
-
-`EngineeringDiagnosticEngine` owns level filtering, failure isolation, intervention gates, status aggregation, run creation, and persistence. Applications supply only their application-specific diagnostic check definitions.
-
-## Ownership boundary
-
-Common.Diagnostics contains reusable diagnostic mechanics and checks that apply to more than one application. It does not own application-specific business concepts.
-
-For example, Cafeteria retains checks for its funding policy, employee/holiday sources, publication backlog, service database, and service-event stream. Those checks are passed to the Common engineering engine.
-
-`Aegis.Diagnostics` is the top-level operator/orchestration application. `Common.Diagnostics` remains the reusable engine and wire-contract library consumed by applications.
-
-This keeps application knowledge in each host while ensuring diagnostic policy, persistence, UI contracts, and orchestration behave consistently across applications.
+Aegis.Diagnostics is the operator-facing aggregation/orchestration product. Common.Diagnostics remains the reusable engine and wire-contract library consumed by applications. Aegis.Diagnostics may actively request an engineering run, but configuration completeness remains owned by Aegis.Configuration.
 
 ## Dependency injection
 
@@ -72,9 +46,7 @@ This keeps application knowledge in each host while ensuring diagnostic policy, 
 services.AddCommonDiagnostics();
 ```
 
-This registers the operational diagnostic runner, durable engineering run store, and engineering diagnostic engine.
-
-Additional operational checks can be registered with:
+Additional checks can be registered with:
 
 ```csharp
 services.AddDiagnosticCheck<MyDiagnosticCheck>();
@@ -82,8 +54,4 @@ services.AddDiagnosticCheck<MyDiagnosticCheck>();
 
 ## Safety
 
-Level 2 and Level 1 runs are intervention gates. A diagnostic run gathers and records evidence but does not automatically perform destructive repair actions.
-
-## Current maturity
-
-The reusable diagnostics engine, contracts, persistence, safety policy, lifecycle metadata, and integration hooks are implemented. Remaining work is primarily runtime proof: exercise Level 5 through Level 1 against real consumers, deliberately introduce controlled failures, verify accurate non-green reporting, and complete cross-application regression testing.
+Level 2 and Level 1 are intervention gates. Diagnostic collection itself must remain observational and must not silently perform destructive repair actions.
