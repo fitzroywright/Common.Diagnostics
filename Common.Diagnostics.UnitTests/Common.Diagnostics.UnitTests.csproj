@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common.Diagnostics.csproj" />
+    <ProjectReference Include="..\Common.Registration.csproj" />
   </ItemGroup>
 </Project>
