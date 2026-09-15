@@ -70,6 +70,41 @@ The existing staging tests are evidence for the contract but should move to a te
 4. Add CI for restore, build, and test on the supported .NET version.
 5. Require the standalone repository CI to be green before changing any downstream checkout/reference.
 
+## Current downstream staging matrix
+
+Every current consumer already checks Common.Registration out into its own dedicated directory. The eventual standalone move therefore changes the checkout source, not the application project layout.
+
+| Consumer | Migration PR | Workflow | Current registration checkout path | Current evidence |
+| --- | --- | --- | --- | --- |
+| Ebolito | #5 | `.github/workflows/ci.yml` | `Common/Common.Registration` | Green downstream CI against current staging implementation |
+| Aegis.Cafeteria | #12 | `.github/workflows/chatgpt-build.yml` | `Common/Common.Registration` | Migration/audit complete; GitHub job currently receives no runner |
+| RequestPortal | #10 | `.github/workflows/ci.yml` | `Common/Common.Registration` | Migration/audit complete; GitHub job currently receives no runner |
+| Aegis.Studio | #15 | `.github/workflows/build.yml` | `Common/Common.Registration` | Migration/audit complete; GitHub job currently receives no runner |
+| Aegis.SensorNetwork | #5 | `.github/workflows/ci.yml` | `external/Common.Registration` | Migration/audit complete; GitHub job currently receives no runner |
+
+Current temporary checkout stanza is conceptually:
+
+```yaml
+- name: Checkout Common.Registration
+  uses: actions/checkout@v4
+  with:
+    repository: fitzroywright/Common.Diagnostics
+    ref: common-registration
+    path: <existing Common.Registration path>
+```
+
+After the standalone repository exists and its CI is green, replace only the source with:
+
+```yaml
+- name: Checkout Common.Registration
+  uses: actions/checkout@v4
+  with:
+    repository: fitzroywright/Common.Registration
+    path: <same existing Common.Registration path>
+```
+
+The `ref: common-registration` line disappears because the standalone repository's normal branch becomes the source of truth. Do not rename the checkout path during this cutover.
+
 ## Downstream cutover sequence
 
 Change one downstream repository at a time.
