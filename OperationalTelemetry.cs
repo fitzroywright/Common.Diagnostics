@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 
-namespace Aegis.Engineering.Diagnostics;
+namespace Common.Diagnostics;
 
 public sealed record OperationalTelemetrySnapshot(
     DateTimeOffset ObservedAtUtc,
@@ -38,8 +38,7 @@ public static class OperationalTelemetryCollector
         TimeSpan firstCpu = process.TotalProcessorTime;
         DateTime firstSample = DateTime.UtcNow;
 
-        try { await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken).ConfigureAwait(false); }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken).ConfigureAwait(false);
 
         process.Refresh();
         TimeSpan elapsed = DateTime.UtcNow - firstSample;
@@ -49,9 +48,9 @@ public static class OperationalTelemetryCollector
             : null;
 
         long runtimeAvailable = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-        DateTime startTime;
-        try { startTime = process.StartTime.ToUniversalTime(); }
-        catch { startTime = DateTime.UtcNow; }
+        DateTimeOffset startTime;
+        try { startTime = new DateTimeOffset(process.StartTime.ToUniversalTime()); }
+        catch { startTime = observedAt; }
 
         List<OperationalNetworkInterfaceSnapshot> network = [];
         foreach (NetworkInterface item in NetworkInterface.GetAllNetworkInterfaces().OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
@@ -71,7 +70,7 @@ public static class OperationalTelemetryCollector
 
         return new(
             observedAt,
-            observedAt - new DateTimeOffset(startTime, TimeSpan.Zero),
+            observedAt - startTime,
             process.WorkingSet64,
             runtimeAvailable > 0 ? runtimeAvailable : null,
             processCpuPercent,
