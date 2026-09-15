@@ -133,9 +133,41 @@ public sealed class RegistrationContractTests
         Assert.Contains("HTTP 503", result.Error, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RegisterContractAsync_DoesNotReportSuccess_WhenRequestTimesOut()
+    {
+        using var client = new HttpClient(new ThrowingHandler(new TaskCanceledException("simulated timeout")));
+        var registrar = new ConfigurationRegistrar(client, new RegistrationOptions(new Uri("https://configuration.example/"), "test-key"));
+
+        RegistrationResult result = await registrar.RegisterContractAsync(new JsonObject());
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.StatusCode);
+        Assert.Equal("Configuration registration timed out.", result.Error);
+    }
+
+    [Fact]
+    public async Task RegisterContractAsync_DoesNotReportSuccess_WhenTransportFails()
+    {
+        using var client = new HttpClient(new ThrowingHandler(new HttpRequestException("simulated network failure")));
+        var registrar = new ConfigurationRegistrar(client, new RegistrationOptions(new Uri("https://configuration.example/"), "test-key"));
+
+        RegistrationResult result = await registrar.RegisterContractAsync(new JsonObject());
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.StatusCode);
+        Assert.Contains("simulated network failure", result.Error, StringComparison.Ordinal);
+    }
+
     private sealed class RecordingHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(respond(request));
+    }
+
+    private sealed class ThrowingHandler(Exception exception) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromException<HttpResponseMessage>(exception);
     }
 }
