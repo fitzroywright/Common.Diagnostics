@@ -56,7 +56,7 @@ public interface IConfigurationContractRegistrar
 
 public static class ConfigurationContractPolicy
 {
-    private static readonly HashSet<string> ValueBearingRequirementFields = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> ValueBearingFields = new(StringComparer.OrdinalIgnoreCase)
     {
         "value",
         "currentValue",
@@ -73,16 +73,27 @@ public static class ConfigurationContractPolicy
         var copy = JsonNode.Parse(contract.ToJsonString())?.AsObject()
             ?? throw new InvalidOperationException("Configuration contract could not be cloned.");
 
-        if (copy["requirements"] is JsonArray requirements)
-        {
-            foreach (var requirement in requirements.OfType<JsonObject>())
-            {
-                foreach (var field in ValueBearingRequirementFields)
-                    requirement.Remove(field);
-            }
-        }
-
+        RemoveValueBearingFields(copy);
         return copy;
+    }
+
+    private static void RemoveValueBearingFields(JsonNode? node)
+    {
+        switch (node)
+        {
+            case JsonObject obj:
+                foreach (string field in ValueBearingFields)
+                    obj.Remove(field);
+
+                foreach (JsonNode? child in obj.Select(property => property.Value).ToArray())
+                    RemoveValueBearingFields(child);
+                break;
+
+            case JsonArray array:
+                foreach (JsonNode? child in array)
+                    RemoveValueBearingFields(child);
+                break;
+        }
     }
 }
 
