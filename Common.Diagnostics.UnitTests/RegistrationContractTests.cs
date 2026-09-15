@@ -49,6 +49,42 @@ public sealed class RegistrationContractTests
     }
 
     [Fact]
+    public void MetadataOnly_RemovesValueBearingFields_Recursively()
+    {
+        JsonObject contract = new()
+        {
+            ["applicationId"] = "Future.App",
+            ["metadata"] = new JsonObject
+            {
+                ["purpose"] = "Keep this metadata",
+                ["defaultValue"] = "must-not-leave-process",
+                ["nested"] = new JsonArray
+                {
+                    new JsonObject
+                    {
+                        ["name"] = "Nested requirement evidence",
+                        ["value"] = "secret-ish",
+                        ["isConfigured"] = true
+                    }
+                }
+            }
+        };
+
+        JsonObject sanitized = ConfigurationContractPolicy.MetadataOnly(contract);
+        JsonObject metadata = sanitized["metadata"]!.AsObject();
+        JsonObject nested = metadata["nested"]!.AsArray()[0]!.AsObject();
+
+        Assert.Equal("Keep this metadata", metadata["purpose"]!.GetValue<string>());
+        Assert.False(metadata.ContainsKey("defaultValue"));
+        Assert.Equal("Nested requirement evidence", nested["name"]!.GetValue<string>());
+        Assert.True(nested["isConfigured"]!.GetValue<bool>());
+        Assert.False(nested.ContainsKey("value"));
+
+        Assert.Equal("must-not-leave-process", contract["metadata"]!["defaultValue"]!.GetValue<string>());
+        Assert.Equal("secret-ish", contract["metadata"]!["nested"]!.AsArray()[0]!["value"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task RegisterContractAsync_SendsMetadataOnlyPayload()
     {
         string? body = null;
