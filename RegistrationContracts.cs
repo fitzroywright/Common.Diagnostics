@@ -54,6 +54,38 @@ public interface IConfigurationContractRegistrar
     Task<RegistrationResult> RegisterContractAsync(JsonObject contract, CancellationToken cancellationToken = default);
 }
 
+public static class ConfigurationContractPolicy
+{
+    private static readonly HashSet<string> ValueBearingRequirementFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "value",
+        "currentValue",
+        "resolvedValue",
+        "effectiveValue",
+        "safeDisplayValue",
+        "defaultValue",
+        "example"
+    };
+
+    public static JsonObject MetadataOnly(JsonObject contract)
+    {
+        ArgumentNullException.ThrowIfNull(contract);
+        var copy = JsonNode.Parse(contract.ToJsonString())?.AsObject()
+            ?? throw new InvalidOperationException("Configuration contract could not be cloned.");
+
+        if (copy["requirements"] is JsonArray requirements)
+        {
+            foreach (var requirement in requirements.OfType<JsonObject>())
+            {
+                foreach (var field in ValueBearingRequirementFields)
+                    requirement.Remove(field);
+            }
+        }
+
+        return copy;
+    }
+}
+
 public sealed class ConfigurationRegistrar : IComponentRegistrar, IConfigurationContractRegistrar
 {
     private readonly HttpClient _http;
@@ -71,7 +103,7 @@ public sealed class ConfigurationRegistrar : IComponentRegistrar, IConfiguration
         => SendAsync(JsonContent.Create(identity), cancellationToken);
 
     public Task<RegistrationResult> RegisterContractAsync(JsonObject contract, CancellationToken cancellationToken = default)
-        => SendAsync(JsonContent.Create(contract), cancellationToken);
+        => SendAsync(JsonContent.Create(ConfigurationContractPolicy.MetadataOnly(contract)), cancellationToken);
 
     private async Task<RegistrationResult> SendAsync(HttpContent content, CancellationToken cancellationToken)
     {
