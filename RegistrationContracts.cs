@@ -30,7 +30,7 @@ public sealed record ComponentIdentity(
             application,
             component,
             version,
-            environment ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production",
+            environment ?? System.Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production",
             Dns.GetHostName(),
             configurationNeeds.ToArray());
     }
