@@ -12,6 +12,36 @@ Applications are authoritative for their diagnostics. They run their own applica
 
 All diagnostic publishers should use `DiagnosticApplicationIdentity` with the same `ApplicationId`, `SiteId`, `InstanceId` and `Version` used by Aegis.Configuration. The normalized V1 operational states are `Healthy`, `Degraded`, `Unhealthy` and `Unknown`.
 
+## Suite-wide `/health` standard
+
+Every independently deployable Aegis HTTP application or service must expose `GET /health` through `Common.Diagnostics` using `MapAegisHealth`. Class libraries do not expose health endpoints.
+
+The endpoint is intentionally small, anonymous, safe to poll repeatedly, non-destructive and must never expose credentials, connection strings or other sensitive diagnostic evidence.
+
+Canonical HTTP behavior:
+
+- `Healthy` -> HTTP 200
+- `Degraded` -> HTTP 200
+- `Unhealthy` -> HTTP 503
+
+The common response contract contains `status`, `application`, `version`, `environment`, `instanceId`, `utc` and an optional safe `summary`.
+
+The shared health implementation is provider-neutral. Database engines, secret providers, storage systems and other concrete dependencies must not be hard-coded into `Common.Diagnostics`. Each application supplies its own dependency assessment callback and determines which dependencies are critical to its core role.
+
+A deployable application's normal pattern is:
+
+```csharp
+app.MapAegisHealth("Aegis.Example", async (services, cancellationToken) =>
+{
+    // Run application-owned dependency checks here.
+    return AegisHealthAssessment.Healthy("Application and critical dependencies are healthy.");
+});
+```
+
+If an application has no critical external dependency to assess, `app.MapAegisHealth("Aegis.Example")` provides a process-level health response.
+
+Deployment automation may use `/health` for start/validate/rollback decisions. A temporary non-critical external outage should normally produce `Degraded`, not falsely report the application itself as dead. Failure of a dependency required for the application's core role should produce `Unhealthy`.
+
 ## Starfleet Engineering Protocols
 
 The existing Level 5 through Level 1 lifecycle is preserved:
