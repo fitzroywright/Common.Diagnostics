@@ -21,6 +21,16 @@ public sealed record AegisHealthAssessment(
     public static AegisHealthAssessment Unhealthy(string? summary = null) => new(AegisHealthState.Unhealthy, summary);
 }
 
+/// <summary>
+/// Optional application-owned source used when MapAegisHealth is called without an inline assessment callback.
+/// This keeps Common.Diagnostics provider-neutral while allowing an application to define truthful readiness
+/// without duplicating the HTTP health contract.
+/// </summary>
+public interface IAegisHealthAssessmentSource
+{
+    Task<AegisHealthAssessment> AssessAsync(CancellationToken cancellationToken);
+}
+
 public sealed record AegisHealthReport(
     string Status,
     string Application,
@@ -35,8 +45,8 @@ public static class AegisHealthEndpointExtensions
     /// <summary>
     /// Maps the suite-standard Aegis health endpoint using the host environment automatically.
     /// Every independently deployable Aegis HTTP application should use this overload.
-    /// Application-specific dependency checks belong in <paramref name="assess"/>; Common.Diagnostics
-    /// remains provider-neutral.
+    /// Application-specific dependency checks belong in <paramref name="assess"/> or an
+    /// IAegisHealthAssessmentSource registered by the application; Common.Diagnostics remains provider-neutral.
     /// </summary>
     public static RouteHandlerBuilder MapAegisHealth(
         this WebApplication app,
@@ -84,9 +94,18 @@ public static class AegisHealthEndpointExtensions
             AegisHealthAssessment assessment;
             try
             {
-                assessment = assess is null
-                    ? AegisHealthAssessment.Healthy("Application process is running.")
-                    : await assess(context.RequestServices, cancellationToken).ConfigureAwait(false);
+                if (assess is not null)
+                {
+                    assessment = await assess(context.RequestServices, cancellationToken).ConfigureAwait(false);
+                }
+                else if (context.RequestServices.GetService(typeof(IAegisHealthAssessmentSource)) is IAegisHealthAssessmentSource source)
+                {
+                    assessment = await source.AssessAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    assessment = AegisHealthAssessment.Healthy("Application process is running.");
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
