@@ -32,6 +32,30 @@ public sealed record AegisHealthReport(
 
 public static class AegisHealthEndpointExtensions
 {
+    /// <summary>
+    /// Maps the suite-standard Aegis health endpoint using the host environment automatically.
+    /// Every independently deployable Aegis HTTP application should use this overload.
+    /// Application-specific dependency checks belong in <paramref name="assess"/>; Common.Diagnostics
+    /// remains provider-neutral.
+    /// </summary>
+    public static RouteHandlerBuilder MapAegisHealth(
+        this WebApplication app,
+        string application,
+        Func<IServiceProvider, CancellationToken, Task<AegisHealthAssessment>>? assess = null,
+        string path = "/health",
+        string? version = null,
+        string? instanceId = null)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        return ((IEndpointRouteBuilder)app).MapAegisHealth(
+            application,
+            app.Environment.EnvironmentName,
+            assess,
+            path,
+            version,
+            instanceId);
+    }
+
     public static RouteHandlerBuilder MapAegisHealth(
         this IEndpointRouteBuilder endpoints,
         string application,
