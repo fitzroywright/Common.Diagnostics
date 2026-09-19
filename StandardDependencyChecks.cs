@@ -33,8 +33,8 @@ public sealed class SecretResolutionDiagnosticCheck : IDiagnosticCheck
         IEnumerable<string> requiredSecretNames,
         Func<string, CancellationToken, Task<string?>> resolver)
     {
-        Name = !string.IsNullOrWhiteSpace(name) ? name : "OpenBao / Common.Secrets";
-        this.providerDescription = !string.IsNullOrWhiteSpace(providerDescription) ? providerDescription : "configured secret provider chain";
+        Name = !string.IsNullOrWhiteSpace(name) ? name : "Common.Secrets";
+        this.providerDescription = !string.IsNullOrWhiteSpace(providerDescription) ? providerDescription : "configured secret provider";
         this.requiredSecretNames = requiredSecretNames?.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
             ?? throw new ArgumentNullException(nameof(requiredSecretNames));
         this.resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
