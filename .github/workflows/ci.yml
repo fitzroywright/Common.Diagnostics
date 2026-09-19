@@ -30,5 +30,8 @@ jobs:
       - name: Build
         run: dotnet build Common.Diagnostics.UnitTests/Common.Diagnostics.UnitTests.csproj --no-restore --configuration Debug
 
+      - name: Build Release
+        run: dotnet build Common.Diagnostics.UnitTests/Common.Diagnostics.UnitTests.csproj --no-restore --configuration Release
+
       - name: Test
         run: dotnet test Common.Diagnostics.UnitTests/Common.Diagnostics.UnitTests.csproj --no-build --configuration Debug
