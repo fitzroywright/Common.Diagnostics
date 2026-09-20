@@ -228,7 +228,14 @@ public sealed class OperationsLogLoggerProvider : ILoggerProvider, ISupportExter
                     }
                 }
 
-                await PublishAsync(batch, cancellationToken).ConfigureAwait(false);
+                bool published = await PublishAsync(batch, cancellationToken).ConfigureAwait(false);
+                if (!published)
+                {
+                    foreach (OperationsLogRecord record in batch)
+                        queue.Writer.TryWrite(record);
+
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -237,6 +244,19 @@ public sealed class OperationsLogLoggerProvider : ILoggerProvider, ISupportExter
             catch
             {
                 // Logging must never become an application availability dependency.
+                // Requeue with the original EventId so Operations can safely deduplicate
+                // if a prior request succeeded but its response was lost.
+                foreach (OperationsLogRecord record in batch)
+                    queue.Writer.TryWrite(record);
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
             finally
             {
@@ -245,16 +265,16 @@ public sealed class OperationsLogLoggerProvider : ILoggerProvider, ISupportExter
         }
     }
 
-    private async Task PublishAsync(
+    private async Task<bool> PublishAsync(
         IReadOnlyList<OperationsLogRecord> records,
         CancellationToken cancellationToken)
     {
-        if (records.Count == 0) return;
+        if (records.Count == 0) return true;
 
         OperationsLogCredential? credential =
             await credentials.GetAsync(cancellationToken).ConfigureAwait(false);
         if (credential is null || string.IsNullOrWhiteSpace(credential.Credential))
-            return;
+            return false;
 
         using var request = new HttpRequestMessage(HttpMethod.Post, options.Endpoint)
         {
@@ -271,7 +291,7 @@ public sealed class OperationsLogLoggerProvider : ILoggerProvider, ISupportExter
 
         using HttpResponseMessage response =
             await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+        return response.IsSuccessStatusCode;
     }
 
     public void Dispose()
