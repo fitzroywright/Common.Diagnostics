@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - Diagnostic_Levels
   pull_request:
     branches:
       - main
