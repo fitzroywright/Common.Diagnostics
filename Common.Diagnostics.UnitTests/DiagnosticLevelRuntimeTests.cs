@@ -163,6 +163,40 @@ public sealed class DiagnosticLevelRuntimeTests
     }
 
     [Fact]
+    public void SignedReadRequestDetectsMethodAndPathTampering()
+    {
+        string timestamp = DateTimeOffset.UtcNow.ToString("O");
+        string signature = DiagnosticLevelRequestSigning.CreateRequestSignature(
+            "secret",
+            "GET",
+            "/api/engineering/diagnostics/diagnostic-level/history",
+            timestamp,
+            "nonce-read");
+
+        Assert.True(DiagnosticLevelRequestSigning.VerifyRequest(
+            "secret",
+            "GET",
+            "/api/engineering/diagnostics/diagnostic-level/history",
+            timestamp,
+            "nonce-read",
+            signature));
+        Assert.False(DiagnosticLevelRequestSigning.VerifyRequest(
+            "secret",
+            "POST",
+            "/api/engineering/diagnostics/diagnostic-level/history",
+            timestamp,
+            "nonce-read",
+            signature));
+        Assert.False(DiagnosticLevelRequestSigning.VerifyRequest(
+            "secret",
+            "GET",
+            "/api/engineering/diagnostics/diagnostic-level/runs/other",
+            timestamp,
+            "nonce-read",
+            signature));
+    }
+
+    [Fact]
     public void NonceCannotBeReused()
     {
         DiagnosticLevelNonceCache cache = new(TimeSpan.FromMinutes(10));
