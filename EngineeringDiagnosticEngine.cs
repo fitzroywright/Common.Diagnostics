@@ -1,5 +1,8 @@
 namespace Common.Diagnostics;
 
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+
 public sealed record EngineeringDiagnosticCheckDefinition(
     string CheckId,
     string Name,
@@ -9,10 +12,14 @@ public sealed record EngineeringDiagnosticCheckDefinition(
 public sealed class EngineeringDiagnosticEngine
 {
     private readonly IEngineeringDiagnosticRunStore runStore;
+    private readonly ILogger<EngineeringDiagnosticEngine>? logger;
 
-    public EngineeringDiagnosticEngine(IEngineeringDiagnosticRunStore runStore)
+    public EngineeringDiagnosticEngine(
+        IEngineeringDiagnosticRunStore runStore,
+        ILogger<EngineeringDiagnosticEngine>? logger = null)
     {
         this.runStore = runStore ?? throw new ArgumentNullException(nameof(runStore));
+        this.logger = logger;
     }
 
     public Task<EngineeringDiagnosticRun> RunAsync(
@@ -128,14 +135,41 @@ public sealed class EngineeringDiagnosticEngine
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                Stopwatch checkStopwatch = Stopwatch.StartNew();
+                logger?.LogInformation(
+                    "LevelX test started. RunId={RunId} CorrelationId={CorrelationId} Target={TargetId} Level={Level} TestId={TestId} TestName={TestName}",
+                    runId,
+                    runId,
+                    target.TargetId,
+                    (int)level,
+                    definition.CheckId,
+                    definition.Name);
+
                 try
                 {
                     EngineeringDiagnosticCheckResult result = await definition.RunAsync(cancellationToken);
-                    checks.Add(result with
+                    EngineeringDiagnosticCheckResult normalized = result with
                     {
                         CheckId = string.IsNullOrWhiteSpace(result.CheckId) ? definition.CheckId : result.CheckId,
                         Name = string.IsNullOrWhiteSpace(result.Name) ? definition.Name : result.Name
-                    });
+                    };
+                    checks.Add(normalized);
+                    checkStopwatch.Stop();
+                    logger?.Log(
+                        normalized.Status == EngineeringDiagnosticStatus.Failed ? LogLevel.Error :
+                        normalized.Status is EngineeringDiagnosticStatus.Warning or EngineeringDiagnosticStatus.InterventionRequired ? LogLevel.Warning :
+                        LogLevel.Information,
+                        "LevelX test completed. RunId={RunId} CorrelationId={CorrelationId} Target={TargetId} Level={Level} TestId={TestId} TestName={TestName} Result={Result} DurationMs={DurationMs} Expected={Expected} Actual={Actual}",
+                        runId,
+                        runId,
+                        target.TargetId,
+                        (int)level,
+                        normalized.CheckId,
+                        normalized.Name,
+                        normalized.Status,
+                        checkStopwatch.ElapsedMilliseconds,
+                        normalized.Expected,
+                        normalized.Actual);
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -143,11 +177,23 @@ public sealed class EngineeringDiagnosticEngine
                 }
                 catch (Exception exception)
                 {
-                    checks.Add(EngineeringDiagnosticPolicy.Failed(
+                    checkStopwatch.Stop();
+                    EngineeringDiagnosticCheckResult failed = EngineeringDiagnosticPolicy.Failed(
                         definition.CheckId,
                         definition.Name,
                         exception.Message,
-                        exception.GetType().FullName));
+                        exception.GetType().FullName);
+                    checks.Add(failed);
+                    logger?.LogError(
+                        exception,
+                        "LevelX test failed. RunId={RunId} CorrelationId={CorrelationId} Target={TargetId} Level={Level} TestId={TestId} TestName={TestName} DurationMs={DurationMs}",
+                        runId,
+                        runId,
+                        target.TargetId,
+                        (int)level,
+                        definition.CheckId,
+                        definition.Name,
+                        checkStopwatch.ElapsedMilliseconds);
                 }
 
                 completedStages++;
