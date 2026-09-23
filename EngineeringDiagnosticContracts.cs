@@ -17,12 +17,23 @@ public enum EngineeringDiagnosticStatus
     InterventionRequired = 4
 }
 
+public enum EngineeringDiagnosticRunState
+{
+    Queued = 1,
+    Running = 2,
+    Completed = 3,
+    Cancelled = 4
+}
+
 public sealed record EngineeringDiagnosticCheckResult(
     string CheckId,
     string Name,
     EngineeringDiagnosticStatus Status,
     string Summary,
-    string? Evidence = null);
+    string? Evidence = null,
+    string? Expected = null,
+    string? Actual = null,
+    string? Code = null);
 
 public sealed record EngineeringDiagnosticRun(
     Guid RunId,
@@ -37,11 +48,25 @@ public sealed record EngineeringDiagnosticRun(
     IReadOnlyList<EngineeringDiagnosticCheckResult> Checks,
     DateTimeOffset? ResolvedAt = null,
     string? ResolvedBy = null,
-    string? Resolution = null);
+    string? Resolution = null,
+    Guid? CorrelationId = null,
+    DiagnosticTargetType TargetType = DiagnosticTargetType.ControlPlane,
+    string? TargetId = null,
+    string? ApplicationId = null,
+    string? InstanceId = null,
+    DateTimeOffset? RequestedAtUtc = null,
+    EngineeringDiagnosticRunState RunState = EngineeringDiagnosticRunState.Completed,
+    string? CurrentStage = null,
+    int ProgressPercent = 100);
 
 public sealed record EngineeringDiagnosticRunRequest(
     EngineeringDiagnosticLevel Level,
-    string? Reason);
+    string? Reason,
+    DiagnosticTargetType TargetType = DiagnosticTargetType.ControlPlane,
+    string? TargetId = null,
+    string? ApplicationId = null,
+    string? InstanceId = null,
+    bool AcknowledgeDisruption = false);
 
 public sealed record EngineeringDiagnosticResolutionRequest(string Resolution);
 
