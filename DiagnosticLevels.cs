@@ -22,29 +22,29 @@ public static class DiagnosticLevels
         {
             [DiagnosticLevel.Level1] = new(
                 DiagnosticLevel.Level1,
-                "Full System Diagnostics",
-                "Deep engineering sweep of the complete system.",
-                ["All components", "Deep dependencies", "Security validation", "Performance analysis", "Disaster recovery readiness"]),
+                "Exhaustive Certification",
+                "Deepest diagnostic certification and controlled intervention.",
+                ["Complete certification", "Destructive-isolated scenarios", "Security validation", "Recovery validation", "Disaster recovery readiness"]),
             [DiagnosticLevel.Level2] = new(
                 DiagnosticLevel.Level2,
-                "Integration Diagnostics",
-                "Cross-component and external integration verification.",
-                ["Cross-component tests", "Messaging and Secrets", "External connectivity", "Telemetry pipeline", "End-to-end scenarios", "Failover simulation"]),
+                "Failure / Recovery Diagnostics",
+                "Controlled failure injection and recovery verification against safe diagnostic targets.",
+                ["Failure injection", "Lease recovery", "Authority outage recovery", "Telemetry recovery", "Failover simulation"]),
             [DiagnosticLevel.Level3] = new(
                 DiagnosticLevel.Level3,
-                "System Diagnostics",
-                "Core application and service dependency validation.",
-                ["Core system health", "Service dependencies", "Authentication", "Data stores", "Certificates"]),
+                "Functional Diagnostics",
+                "Functional workflow validation without production-destructive behavior.",
+                ["Functional workflows", "Registration lifecycle", "Authentication", "Data stores", "Configuration contracts"]),
             [DiagnosticLevel.Level4] = new(
                 DiagnosticLevel.Level4,
-                "Component Diagnostics",
-                "Focused checks for individual components and resources.",
-                ["Component tests", "API health", "Secret provider health", "Messaging queue health", "Resource utilization"]),
+                "Integration Diagnostics",
+                "Cross-service and dependency agreement validation.",
+                ["Cross-service tests", "API health", "Control Plane handoffs", "Telemetry agreement", "Configuration propagation"]),
             [DiagnosticLevel.Level5] = new(
                 DiagnosticLevel.Level5,
-                "Quick Diagnostics",
-                "Fast startup and heartbeat verification.",
-                ["Basic health", "Service heartbeat", "Critical dependencies", "Configuration sanity"])
+                "Routine Diagnostics",
+                "Fast, safe state consistency and freshness verification.",
+                ["Basic health", "Registration freshness", "Telemetry freshness", "State consistency", "Configuration sanity"])
         };
 
     public static bool Includes(DiagnosticLevel requested, DiagnosticLevel checkLevel)
