@@ -30,12 +30,12 @@ public sealed class DiagnosticLevelTests
     [Fact]
     public void DefinitionsUseLevel1AsDeepestAndLevel5AsQuickest()
     {
-        Assert.Equal("Full System Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Name);
+        Assert.Equal("Exhaustive Certification", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Name);
         Assert.Contains("Disaster recovery readiness", DiagnosticLevels.Definitions[DiagnosticLevel.Level1].Capabilities);
-        Assert.Equal("Integration Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level2].Name);
-        Assert.Equal("System Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level3].Name);
-        Assert.Equal("Component Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level4].Name);
-        Assert.Equal("Quick Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level5].Name);
+        Assert.Equal("Failure / Recovery Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level2].Name);
+        Assert.Equal("Functional Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level3].Name);
+        Assert.Equal("Integration Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level4].Name);
+        Assert.Equal("Routine Diagnostics", DiagnosticLevels.Definitions[DiagnosticLevel.Level5].Name);
     }
 
     private sealed class TestCheck : ILeveledDiagnosticCheck
