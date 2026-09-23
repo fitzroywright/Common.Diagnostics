@@ -431,6 +431,28 @@ public sealed class LevelXEndpointSecurityOptions
     public bool RequireSignedRequests { get; set; } = true;
 }
 
+public interface ILevelXRequestCredentialProvider
+{
+    ValueTask<string?> GetCredentialAsync(
+        Microsoft.AspNetCore.Http.HttpContext context,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class StaticLevelXRequestCredentialProvider(LevelXEndpointSecurityOptions options)
+    : ILevelXRequestCredentialProvider
+{
+    private readonly LevelXEndpointSecurityOptions options =
+        options ?? throw new ArgumentNullException(nameof(options));
+
+    public ValueTask<string?> GetCredentialAsync(
+        Microsoft.AspNetCore.Http.HttpContext context,
+        CancellationToken cancellationToken = default)
+        => ValueTask.FromResult(
+            string.IsNullOrWhiteSpace(options.SharedSecret)
+                ? null
+                : options.SharedSecret.Trim());
+}
+
 public sealed class LevelXExecutionOptions
 {
     public string Application { get; set; } = "Unknown";
@@ -450,14 +472,19 @@ public static class LevelXRuntimeEndpoints
             Microsoft.AspNetCore.Http.HttpContext context,
             LevelXExecutionService service,
             LevelXEndpointSecurityOptions security,
+            ILevelXRequestCredentialProvider credentialProvider,
             LevelXNonceCache nonceCache,
             CancellationToken ct) =>
         {
             if (security.RequireSignedRequests)
             {
-                if (string.IsNullOrWhiteSpace(security.SharedSecret))
+                string? credential = await credentialProvider
+                    .GetCredentialAsync(context, ct)
+                    .ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(credential))
                     return Microsoft.AspNetCore.Http.Results.Problem(
-                        "LevelX signed-request authentication is required but no per-install credential is configured.",
+                        "LevelX signed-request authentication is required but no per-install credential is available.",
                         statusCode: Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable);
 
                 string timestamp = context.Request.Headers["X-Aegis-Diagnostics-Timestamp"].ToString();
@@ -474,7 +501,7 @@ public static class LevelXRuntimeEndpoints
 
                 if (string.IsNullOrWhiteSpace(signature) ||
                     !LevelXRequestSigning.VerifyRunRequest(
-                        security.SharedSecret,
+                        credential,
                         context.Request.Path,
                         timestamp,
                         nonce,
