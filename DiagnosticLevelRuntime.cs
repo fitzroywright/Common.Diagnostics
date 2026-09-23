@@ -197,7 +197,7 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
-                CREATE TABLE IF NOT EXISTS diagnostic-level_runs (
+                CREATE TABLE IF NOT EXISTS diagnostic_level_runs (
                     run_id TEXT PRIMARY KEY,
                     request_id TEXT NOT NULL,
                     correlation_id TEXT NOT NULL,
@@ -217,10 +217,10 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
                     current_test_id TEXT NULL,
                     payload_json TEXT NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS ix_diagnostic-level_runs_requested_at ON diagnostic-level_runs(requested_at_utc DESC);
-                CREATE INDEX IF NOT EXISTS ix_diagnostic-level_runs_application_component ON diagnostic-level_runs(application, component);
-                CREATE INDEX IF NOT EXISTS ix_diagnostic-level_runs_correlation ON diagnostic-level_runs(correlation_id);
-                CREATE INDEX IF NOT EXISTS ix_diagnostic-level_runs_state ON diagnostic-level_runs(execution_state);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_requested_at ON diagnostic_level_runs(requested_at_utc DESC);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_application_component ON diagnostic_level_runs(application, component);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_correlation ON diagnostic_level_runs(correlation_id);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_state ON diagnostic_level_runs(execution_state);
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -244,7 +244,7 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO diagnostic-level_runs (
+                INSERT INTO diagnostic_level_runs (
                     run_id, request_id, correlation_id, application, component, host, level,
                     execution_state, delivery_state, requested_by, requested_at_utc, accepted_at_utc,
                     started_at_utc, completed_at_utc, version, integrity_hash, current_test_id, payload_json)
@@ -304,7 +304,7 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
         await using SqliteConnection connection = Open(fullPath);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT payload_json FROM diagnostic-level_runs WHERE run_id=$run_id LIMIT 1;";
+        command.CommandText = "SELECT payload_json FROM diagnostic_level_runs WHERE run_id=$run_id LIMIT 1;";
         Add(command, "$run_id", runId.ToString("D"));
         object? value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return value is string json ? JsonSerializer.Deserialize<DiagnosticLevelRunRecord>(json, JsonOptions) : null;
@@ -339,7 +339,7 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
         if (!string.IsNullOrWhiteSpace(query.Version)) Filter("version = $version", "$version", query.Version.Trim());
 
         string where = filters.Count == 0 ? string.Empty : " WHERE " + string.Join(" AND ", filters);
-        command.CommandText = $"SELECT payload_json FROM diagnostic-level_runs{where} ORDER BY requested_at_utc DESC LIMIT $take;";
+        command.CommandText = $"SELECT payload_json FROM diagnostic_level_runs{where} ORDER BY requested_at_utc DESC LIMIT $take;";
         Add(command, "$take", Math.Clamp(query.Take, 1, 1000));
 
         List<DiagnosticLevelRunRecord> runs = [];
@@ -370,7 +370,7 @@ public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
             await using SqliteConnection connection = Open(fullPath);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM diagnostic-level_runs WHERE run_id=$run_id;";
+            command.CommandText = "DELETE FROM diagnostic_level_runs WHERE run_id=$run_id;";
             Add(command, "$run_id", run.RunId.ToString("D"));
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
