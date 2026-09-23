@@ -9,7 +9,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 
-public enum LevelXExecutionState
+public enum DiagnosticLevelExecutionState
 {
     Idle = 0,
     Requested = 1,
@@ -22,7 +22,7 @@ public enum LevelXExecutionState
     Unknown = 8
 }
 
-public enum LevelXDeliveryState
+public enum DiagnosticLevelDeliveryState
 {
     NotApplicable = 0,
     NotAttempted = 1,
@@ -34,7 +34,7 @@ public enum LevelXDeliveryState
     Rejected = 7
 }
 
-public sealed record LevelXComponentVersion(
+public sealed record DiagnosticLevelComponentVersion(
     string Application,
     string Component,
     string Version,
@@ -43,7 +43,7 @@ public sealed record LevelXComponentVersion(
     string? Runtime = null,
     string? CatalogVersion = null)
 {
-    public static LevelXComponentVersion Capture(
+    public static DiagnosticLevelComponentVersion Capture(
         string application,
         string component,
         string? catalogVersion = null,
@@ -77,7 +77,7 @@ public sealed record LevelXComponentVersion(
     }
 }
 
-public sealed record LevelXTestResult(
+public sealed record DiagnosticLevelTestResult(
     string TestId,
     string Name,
     string Owner,
@@ -92,7 +92,7 @@ public sealed record LevelXTestResult(
     public TimeSpan Duration => CompletedAtUtc - StartedAtUtc;
 }
 
-public sealed record LevelXRunRecord(
+public sealed record DiagnosticLevelRunRecord(
     Guid RunId,
     Guid RequestId,
     Guid CorrelationId,
@@ -100,15 +100,15 @@ public sealed record LevelXRunRecord(
     string Component,
     string Host,
     EngineeringDiagnosticLevel Level,
-    LevelXExecutionState ExecutionState,
-    LevelXDeliveryState DeliveryState,
+    DiagnosticLevelExecutionState ExecutionState,
+    DiagnosticLevelDeliveryState DeliveryState,
     string RequestedBy,
     DateTimeOffset RequestedAtUtc,
     DateTimeOffset? AcceptedAtUtc,
     DateTimeOffset? StartedAtUtc,
     DateTimeOffset? CompletedAtUtc,
-    LevelXComponentVersion Version,
-    IReadOnlyList<LevelXTestResult> Tests,
+    DiagnosticLevelComponentVersion Version,
+    IReadOnlyList<DiagnosticLevelTestResult> Tests,
     string? IntegrityHash = null,
     string? CurrentTestId = null,
     string? Failure = null,
@@ -119,7 +119,7 @@ public sealed record LevelXRunRecord(
     public int WarningTests => Tests.Count(x => x.Status is EngineeringDiagnosticStatus.Warning or EngineeringDiagnosticStatus.InterventionRequired);
 }
 
-public sealed record LevelXRunRequest(
+public sealed record DiagnosticLevelRunRequest(
     Guid RequestId,
     Guid CorrelationId,
     EngineeringDiagnosticLevel Level,
@@ -129,59 +129,59 @@ public sealed record LevelXRunRequest(
     DateTimeOffset IssuedAtUtc,
     DateTimeOffset ExpiresAtUtc);
 
-public sealed record LevelXRunAccepted(
+public sealed record DiagnosticLevelRunAccepted(
     Guid RunId,
     Guid RequestId,
     Guid CorrelationId,
-    LevelXExecutionState State,
+    DiagnosticLevelExecutionState State,
     DateTimeOffset AcceptedAtUtc,
     EngineeringDiagnosticLevel Level,
     string Application,
     string Component);
 
-public sealed record LevelXCompletionCallback(
+public sealed record DiagnosticLevelCompletionCallback(
     Guid RunId,
     Guid RequestId,
     Guid CorrelationId,
-    LevelXRunRecord Run);
+    DiagnosticLevelRunRecord Run);
 
-public sealed record LevelXHistoryQuery(
+public sealed record DiagnosticLevelHistoryQuery(
     DateTimeOffset? FromUtc = null,
     DateTimeOffset? ToUtc = null,
     string? Application = null,
     string? Component = null,
     string? Host = null,
     EngineeringDiagnosticLevel? Level = null,
-    LevelXExecutionState? State = null,
+    DiagnosticLevelExecutionState? State = null,
     string? TestId = null,
     Guid? CorrelationId = null,
     string? RequestedBy = null,
     string? Version = null,
     int Take = 100);
 
-public sealed class LevelXStoreOptions
+public sealed class DiagnosticLevelStoreOptions
 {
-    public string Path { get; set; } = System.IO.Path.Combine("data", "common-diagnostics", "levelx.db");
+    public string Path { get; set; } = System.IO.Path.Combine("data", "common-diagnostics", "diagnostic-level.db");
     public int RetainPassedDays { get; set; } = 90;
     public int RetainNonPassedDays { get; set; } = 365;
 }
 
-public interface ILevelXRunStore
+public interface IDiagnosticLevelRunStore
 {
     Task InitializeAsync(CancellationToken cancellationToken = default);
-    Task SaveAsync(LevelXRunRecord run, CancellationToken cancellationToken = default);
-    Task<LevelXRunRecord?> GetAsync(Guid runId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<LevelXRunRecord>> QueryAsync(LevelXHistoryQuery query, CancellationToken cancellationToken = default);
+    Task SaveAsync(DiagnosticLevelRunRecord run, CancellationToken cancellationToken = default);
+    Task<DiagnosticLevelRunRecord?> GetAsync(Guid runId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DiagnosticLevelRunRecord>> QueryAsync(DiagnosticLevelHistoryQuery query, CancellationToken cancellationToken = default);
     Task PurgeExpiredAsync(DateTimeOffset nowUtc, CancellationToken cancellationToken = default);
 }
 
-public sealed class SqliteLevelXRunStore : ILevelXRunStore
+public sealed class SqliteDiagnosticLevelRunStore : IDiagnosticLevelRunStore
 {
-    private readonly LevelXStoreOptions options;
+    private readonly DiagnosticLevelStoreOptions options;
     private readonly SemaphoreSlim gate = new(1, 1);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public SqliteLevelXRunStore(LevelXStoreOptions options)
+    public SqliteDiagnosticLevelRunStore(DiagnosticLevelStoreOptions options)
     {
         this.options = options ?? throw new ArgumentNullException(nameof(options));
     }
@@ -197,7 +197,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
-                CREATE TABLE IF NOT EXISTS levelx_runs (
+                CREATE TABLE IF NOT EXISTS diagnostic_level_runs (
                     run_id TEXT PRIMARY KEY,
                     request_id TEXT NOT NULL,
                     correlation_id TEXT NOT NULL,
@@ -217,10 +217,10 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
                     current_test_id TEXT NULL,
                     payload_json TEXT NOT NULL
                 );
-                CREATE INDEX IF NOT EXISTS ix_levelx_runs_requested_at ON levelx_runs(requested_at_utc DESC);
-                CREATE INDEX IF NOT EXISTS ix_levelx_runs_application_component ON levelx_runs(application, component);
-                CREATE INDEX IF NOT EXISTS ix_levelx_runs_correlation ON levelx_runs(correlation_id);
-                CREATE INDEX IF NOT EXISTS ix_levelx_runs_state ON levelx_runs(execution_state);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_requested_at ON diagnostic_level_runs(requested_at_utc DESC);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_application_component ON diagnostic_level_runs(application, component);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_correlation ON diagnostic_level_runs(correlation_id);
+                CREATE INDEX IF NOT EXISTS ix_diagnostic_level_runs_state ON diagnostic_level_runs(execution_state);
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -230,7 +230,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
         }
     }
 
-    public async Task SaveAsync(LevelXRunRecord run, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(DiagnosticLevelRunRecord run, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(run);
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -244,7 +244,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
-                INSERT INTO levelx_runs (
+                INSERT INTO diagnostic_level_runs (
                     run_id, request_id, correlation_id, application, component, host, level,
                     execution_state, delivery_state, requested_by, requested_at_utc, accepted_at_utc,
                     started_at_utc, completed_at_utc, version, integrity_hash, current_test_id, payload_json)
@@ -297,20 +297,20 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
         }
     }
 
-    public async Task<LevelXRunRecord?> GetAsync(Guid runId, CancellationToken cancellationToken = default)
+    public async Task<DiagnosticLevelRunRecord?> GetAsync(Guid runId, CancellationToken cancellationToken = default)
     {
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
         string fullPath = System.IO.Path.GetFullPath(options.Path);
         await using SqliteConnection connection = Open(fullPath);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using SqliteCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT payload_json FROM levelx_runs WHERE run_id=$run_id LIMIT 1;";
+        command.CommandText = "SELECT payload_json FROM diagnostic_level_runs WHERE run_id=$run_id LIMIT 1;";
         Add(command, "$run_id", runId.ToString("D"));
         object? value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        return value is string json ? JsonSerializer.Deserialize<LevelXRunRecord>(json, JsonOptions) : null;
+        return value is string json ? JsonSerializer.Deserialize<DiagnosticLevelRunRecord>(json, JsonOptions) : null;
     }
 
-    public async Task<IReadOnlyList<LevelXRunRecord>> QueryAsync(LevelXHistoryQuery query, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DiagnosticLevelRunRecord>> QueryAsync(DiagnosticLevelHistoryQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
         await InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -339,14 +339,14 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
         if (!string.IsNullOrWhiteSpace(query.Version)) Filter("version = $version", "$version", query.Version.Trim());
 
         string where = filters.Count == 0 ? string.Empty : " WHERE " + string.Join(" AND ", filters);
-        command.CommandText = $"SELECT payload_json FROM levelx_runs{where} ORDER BY requested_at_utc DESC LIMIT $take;";
+        command.CommandText = $"SELECT payload_json FROM diagnostic_level_runs{where} ORDER BY requested_at_utc DESC LIMIT $take;";
         Add(command, "$take", Math.Clamp(query.Take, 1, 1000));
 
-        List<LevelXRunRecord> runs = [];
+        List<DiagnosticLevelRunRecord> runs = [];
         await using SqliteDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            LevelXRunRecord? run = JsonSerializer.Deserialize<LevelXRunRecord>(reader.GetString(0), JsonOptions);
+            DiagnosticLevelRunRecord? run = JsonSerializer.Deserialize<DiagnosticLevelRunRecord>(reader.GetString(0), JsonOptions);
             if (run is null) continue;
             if (!string.IsNullOrWhiteSpace(query.TestId) &&
                 !run.Tests.Any(x => string.Equals(x.TestId, query.TestId, StringComparison.OrdinalIgnoreCase)))
@@ -359,10 +359,10 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
 
     public async Task PurgeExpiredAsync(DateTimeOffset nowUtc, CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<LevelXRunRecord> runs = await QueryAsync(new LevelXHistoryQuery(Take: 1000), cancellationToken).ConfigureAwait(false);
-        foreach (LevelXRunRecord run in runs)
+        IReadOnlyList<DiagnosticLevelRunRecord> runs = await QueryAsync(new DiagnosticLevelHistoryQuery(Take: 1000), cancellationToken).ConfigureAwait(false);
+        foreach (DiagnosticLevelRunRecord run in runs)
         {
-            bool passed = run.ExecutionState == LevelXExecutionState.Completed && run.FailedTests == 0 && run.WarningTests == 0;
+            bool passed = run.ExecutionState == DiagnosticLevelExecutionState.Completed && run.FailedTests == 0 && run.WarningTests == 0;
             int days = passed ? options.RetainPassedDays : options.RetainNonPassedDays;
             if (run.RequestedAtUtc.AddDays(Math.Max(1, days)) >= nowUtc) continue;
 
@@ -370,7 +370,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
             await using SqliteConnection connection = Open(fullPath);
             await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
             await using SqliteCommand command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM levelx_runs WHERE run_id=$run_id;";
+            command.CommandText = "DELETE FROM diagnostic_level_runs WHERE run_id=$run_id;";
             Add(command, "$run_id", run.RunId.ToString("D"));
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -383,7 +383,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
         => command.Parameters.AddWithValue(name, value ?? DBNull.Value);
 }
 
-public interface ILevelXLocalTest
+public interface IDiagnosticLevelLocalTest
 {
     string TestId { get; }
     string Name { get; }
@@ -393,11 +393,11 @@ public interface ILevelXLocalTest
     Task<EngineeringDiagnosticCheckResult> RunAsync(CancellationToken cancellationToken);
 }
 
-public sealed class DelegateLevelXLocalTest : ILevelXLocalTest
+public sealed class DelegateDiagnosticLevelLocalTest : IDiagnosticLevelLocalTest
 {
     private readonly Func<CancellationToken, Task<EngineeringDiagnosticCheckResult>> run;
 
-    public DelegateLevelXLocalTest(
+    public DelegateDiagnosticLevelLocalTest(
         string testId,
         string name,
         string owner,
@@ -424,23 +424,23 @@ public sealed class DelegateLevelXLocalTest : ILevelXLocalTest
     public Task<EngineeringDiagnosticCheckResult> RunAsync(CancellationToken cancellationToken) => run(cancellationToken);
 }
 
-public sealed class LevelXEndpointSecurityOptions
+public sealed class DiagnosticLevelEndpointSecurityOptions
 {
     public string? SharedSecret { get; set; }
     public TimeSpan MaxClockSkew { get; set; } = TimeSpan.FromMinutes(2);
     public bool RequireSignedRequests { get; set; } = true;
 }
 
-public interface ILevelXRequestCredentialProvider
+public interface IDiagnosticLevelRequestCredentialProvider
 {
     ValueTask<string?> GetCredentialAsync(
         CancellationToken cancellationToken = default);
 }
 
-public sealed class StaticLevelXRequestCredentialProvider(LevelXEndpointSecurityOptions options)
-    : ILevelXRequestCredentialProvider
+public sealed class StaticDiagnosticLevelRequestCredentialProvider(DiagnosticLevelEndpointSecurityOptions options)
+    : IDiagnosticLevelRequestCredentialProvider
 {
-    private readonly LevelXEndpointSecurityOptions options =
+    private readonly DiagnosticLevelEndpointSecurityOptions options =
         options ?? throw new ArgumentNullException(nameof(options));
 
     public ValueTask<string?> GetCredentialAsync(
@@ -451,7 +451,7 @@ public sealed class StaticLevelXRequestCredentialProvider(LevelXEndpointSecurity
                 : options.SharedSecret.Trim());
 }
 
-public sealed class LevelXExecutionOptions
+public sealed class DiagnosticLevelExecutionOptions
 {
     public string Application { get; set; } = "Unknown";
     public string Component { get; set; } = "Unknown";
@@ -460,19 +460,19 @@ public sealed class LevelXExecutionOptions
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(5);
 }
 
-public static class LevelXRuntimeEndpoints
+public static class DiagnosticLevelRuntimeEndpoints
 {
-    public static void MapLevelXRuntime(
+    public static void MapDiagnosticLevelRuntime(
         this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder endpoints,
-        string routePrefix = "/api/engineering/diagnostics/levelx")
+        string routePrefix = "/api/engineering/diagnostics/diagnostic-level")
     {
         endpoints.MapPost(routePrefix + "/run", async (
-            LevelXRunRequest request,
+            DiagnosticLevelRunRequest request,
             Microsoft.AspNetCore.Http.HttpContext context,
-            LevelXExecutionService service,
-            LevelXEndpointSecurityOptions security,
-            ILevelXRequestCredentialProvider credentialProvider,
-            LevelXNonceCache nonceCache,
+            DiagnosticLevelExecutionService service,
+            DiagnosticLevelEndpointSecurityOptions security,
+            IDiagnosticLevelRequestCredentialProvider credentialProvider,
+            DiagnosticLevelNonceCache nonceCache,
             CancellationToken ct) =>
         {
             if (security.RequireSignedRequests)
@@ -483,7 +483,7 @@ public static class LevelXRuntimeEndpoints
 
                 if (string.IsNullOrWhiteSpace(credential))
                     return Microsoft.AspNetCore.Http.Results.Problem(
-                        "LevelX signed-request authentication is required but no per-install credential is available.",
+                        "DiagnosticLevel signed-request authentication is required but no per-install credential is available.",
                         statusCode: Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable);
 
                 string timestamp = context.Request.Headers["X-Aegis-Diagnostics-Timestamp"].ToString();
@@ -499,7 +499,7 @@ public static class LevelXRuntimeEndpoints
                     return Microsoft.AspNetCore.Http.Results.Unauthorized();
 
                 if (string.IsNullOrWhiteSpace(signature) ||
-                    !LevelXRequestSigning.VerifyRunRequest(
+                    !DiagnosticLevelRequestSigning.VerifyRunRequest(
                         credential,
                         context.Request.Path,
                         timestamp,
@@ -511,7 +511,7 @@ public static class LevelXRuntimeEndpoints
 
             try
             {
-                LevelXRunAccepted accepted = await service.AcceptAsync(request, ct).ConfigureAwait(false);
+                DiagnosticLevelRunAccepted accepted = await service.AcceptAsync(request, ct).ConfigureAwait(false);
                 return Microsoft.AspNetCore.Http.Results.Accepted(value: accepted);
             }
             catch (InvalidOperationException ex)
@@ -526,24 +526,24 @@ public static class LevelXRuntimeEndpoints
 
         endpoints.MapGet(routePrefix + "/runs/{runId:guid}", async (
             Guid runId,
-            ILevelXRunStore store,
+            IDiagnosticLevelRunStore store,
             CancellationToken ct) =>
         {
-            LevelXRunRecord? run = await store.GetAsync(runId, ct).ConfigureAwait(false);
+            DiagnosticLevelRunRecord? run = await store.GetAsync(runId, ct).ConfigureAwait(false);
             return run is null
                 ? Microsoft.AspNetCore.Http.Results.NotFound()
                 : Microsoft.AspNetCore.Http.Results.Ok(run);
         });
 
         endpoints.MapGet(routePrefix + "/history", async (
-            ILevelXRunStore store,
+            IDiagnosticLevelRunStore store,
             CancellationToken ct) =>
             Microsoft.AspNetCore.Http.Results.Ok(
-                await store.QueryAsync(new LevelXHistoryQuery(), ct).ConfigureAwait(false)));
+                await store.QueryAsync(new DiagnosticLevelHistoryQuery(), ct).ConfigureAwait(false)));
 
         endpoints.MapPost(routePrefix + "/runs/{runId:guid}/cancel", async (
             Guid runId,
-            LevelXExecutionService service,
+            DiagnosticLevelExecutionService service,
             CancellationToken ct) =>
             await service.CancelAsync(runId, ct).ConfigureAwait(false)
                 ? Microsoft.AspNetCore.Http.Results.Accepted()
@@ -551,22 +551,22 @@ public static class LevelXRuntimeEndpoints
     }
 }
 
-public sealed class LevelXExecutionService
+public sealed class DiagnosticLevelExecutionService
 {
     private static readonly JsonSerializerOptions IntegrityJsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IReadOnlyList<ILevelXLocalTest> tests;
-    private readonly ILevelXRunStore store;
-    private readonly LevelXExecutionOptions options;
-    private readonly ILevelXCompletionNotifier completionNotifier;
-    private readonly ILogger<LevelXExecutionService>? logger;
+    private readonly IReadOnlyList<IDiagnosticLevelLocalTest> tests;
+    private readonly IDiagnosticLevelRunStore store;
+    private readonly DiagnosticLevelExecutionOptions options;
+    private readonly IDiagnosticLevelCompletionNotifier completionNotifier;
+    private readonly ILogger<DiagnosticLevelExecutionService>? logger;
     private readonly ConcurrentDictionary<string, ActiveRun> active = new(StringComparer.OrdinalIgnoreCase);
 
-    public LevelXExecutionService(
-        IEnumerable<ILevelXLocalTest> tests,
-        ILevelXRunStore store,
-        LevelXExecutionOptions options,
-        ILevelXCompletionNotifier completionNotifier,
-        ILogger<LevelXExecutionService>? logger = null)
+    public DiagnosticLevelExecutionService(
+        IEnumerable<IDiagnosticLevelLocalTest> tests,
+        IDiagnosticLevelRunStore store,
+        DiagnosticLevelExecutionOptions options,
+        IDiagnosticLevelCompletionNotifier completionNotifier,
+        ILogger<DiagnosticLevelExecutionService>? logger = null)
     {
         this.tests = tests?.ToArray() ?? throw new ArgumentNullException(nameof(tests));
         this.store = store ?? throw new ArgumentNullException(nameof(store));
@@ -588,7 +588,7 @@ public sealed class LevelXExecutionService
         return false;
     }
 
-    public async Task<LevelXRunAccepted> AcceptAsync(LevelXRunRequest request, CancellationToken cancellationToken = default)
+    public async Task<DiagnosticLevelRunAccepted> AcceptAsync(DiagnosticLevelRunRequest request, CancellationToken cancellationToken = default)
     {
         EngineeringDiagnosticPolicy.ValidateLevel(request.Level);
         if (request.ExpiresAtUtc <= DateTimeOffset.UtcNow)
@@ -600,22 +600,22 @@ public sealed class LevelXExecutionService
         ActiveRun activeRun = new(runId, runCts);
 
         if (!active.TryAdd(key, activeRun))
-            throw new InvalidOperationException($"A LevelX diagnostic run is already active for {key}.");
+            throw new InvalidOperationException($"A DiagnosticLevel diagnostic run is already active for {key}.");
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        LevelXRunRecord accepted = NewRun(runId, request, now) with
+        DiagnosticLevelRunRecord accepted = NewRun(runId, request, now) with
         {
-            ExecutionState = LevelXExecutionState.Accepted,
+            ExecutionState = DiagnosticLevelExecutionState.Accepted,
             DeliveryState = string.IsNullOrWhiteSpace(request.CallbackUrl)
-                ? LevelXDeliveryState.NotApplicable
-                : LevelXDeliveryState.CallbackPending,
+                ? DiagnosticLevelDeliveryState.NotApplicable
+                : DiagnosticLevelDeliveryState.CallbackPending,
             AcceptedAtUtc = now,
             LastProgressAtUtc = now
         };
         await store.SaveAsync(accepted, cancellationToken).ConfigureAwait(false);
 
         _ = ExecuteAcceptedAsync(key, request, accepted, runCts.Token);
-        return new(runId, request.RequestId, request.CorrelationId, LevelXExecutionState.Accepted, now, request.Level, options.Application, options.Component);
+        return new(runId, request.RequestId, request.CorrelationId, DiagnosticLevelExecutionState.Accepted, now, request.Level, options.Application, options.Component);
     }
 
     public async Task<bool> CancelAsync(Guid runId, CancellationToken cancellationToken = default)
@@ -627,28 +627,28 @@ public sealed class LevelXExecutionService
         return true;
     }
 
-    private async Task ExecuteAcceptedAsync(string key, LevelXRunRequest request, LevelXRunRecord accepted, CancellationToken cancellationToken)
+    private async Task ExecuteAcceptedAsync(string key, DiagnosticLevelRunRequest request, DiagnosticLevelRunRecord accepted, CancellationToken cancellationToken)
     {
-        List<LevelXTestResult> results = [];
-        LevelXRunRecord current = accepted;
+        List<DiagnosticLevelTestResult> results = [];
+        DiagnosticLevelRunRecord current = accepted;
         try
         {
             DateTimeOffset started = DateTimeOffset.UtcNow;
             current = current with
             {
-                ExecutionState = LevelXExecutionState.Running,
+                ExecutionState = DiagnosticLevelExecutionState.Running,
                 StartedAtUtc = started,
                 LastProgressAtUtc = started
             };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
 
-            ILevelXLocalTest[] selected = tests
+            IDiagnosticLevelLocalTest[] selected = tests
                 .Where(x => (int)x.Level >= (int)request.Level)
                 .OrderByDescending(x => (int)x.Level)
                 .ThenBy(x => x.TestId, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            foreach (ILevelXLocalTest test in selected)
+            foreach (IDiagnosticLevelLocalTest test in selected)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (test.IsDestructive && test.Level is EngineeringDiagnosticLevel.Level5Scan or EngineeringDiagnosticLevel.Level4Analysis)
@@ -673,7 +673,7 @@ public sealed class LevelXExecutionService
                 }
 
                 DateTimeOffset testCompleted = DateTimeOffset.UtcNow;
-                LevelXTestResult result = new(
+                DiagnosticLevelTestResult result = new(
                     test.TestId,
                     test.Name,
                     test.Owner,
@@ -687,7 +687,7 @@ public sealed class LevelXExecutionService
                 results.Add(result);
 
                 logger?.LogInformation(
-                    "LevelX test completed. RunId={RunId} RequestId={RequestId} CorrelationId={CorrelationId} Application={Application} Component={Component} Level={Level} TestId={TestId} TestName={TestName} Status={Status} DurationMs={DurationMs}",
+                    "DiagnosticLevel test completed. RunId={RunId} RequestId={RequestId} CorrelationId={CorrelationId} Application={Application} Component={Component} Level={Level} TestId={TestId} TestName={TestName} Status={Status} DurationMs={DurationMs}",
                     current.RunId,
                     current.RequestId,
                     current.CorrelationId,
@@ -703,7 +703,7 @@ public sealed class LevelXExecutionService
             DateTimeOffset completed = DateTimeOffset.UtcNow;
             current = current with
             {
-                ExecutionState = LevelXExecutionState.Completed,
+                ExecutionState = DiagnosticLevelExecutionState.Completed,
                 CompletedAtUtc = completed,
                 LastProgressAtUtc = completed,
                 CurrentTestId = null,
@@ -717,7 +717,7 @@ public sealed class LevelXExecutionService
             DateTimeOffset completed = DateTimeOffset.UtcNow;
             current = current with
             {
-                ExecutionState = LevelXExecutionState.Cancelled,
+                ExecutionState = DiagnosticLevelExecutionState.Cancelled,
                 CompletedAtUtc = completed,
                 LastProgressAtUtc = completed,
                 CurrentTestId = null,
@@ -732,7 +732,7 @@ public sealed class LevelXExecutionService
             DateTimeOffset completed = DateTimeOffset.UtcNow;
             current = current with
             {
-                ExecutionState = LevelXExecutionState.Interrupted,
+                ExecutionState = DiagnosticLevelExecutionState.Interrupted,
                 CompletedAtUtc = completed,
                 LastProgressAtUtc = completed,
                 CurrentTestId = null,
@@ -741,17 +741,17 @@ public sealed class LevelXExecutionService
             };
             current = current with { IntegrityHash = ComputeIntegrityHash(current) };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
-            logger?.LogError(ex, "LevelX run interrupted. RunId={RunId}", current.RunId);
+            logger?.LogError(ex, "DiagnosticLevel run interrupted. RunId={RunId}", current.RunId);
         }
         finally
         {
-            if (current.ExecutionState is LevelXExecutionState.Completed or
-                LevelXExecutionState.Cancelled or
-                LevelXExecutionState.Interrupted)
+            if (current.ExecutionState is DiagnosticLevelExecutionState.Completed or
+                DiagnosticLevelExecutionState.Cancelled or
+                DiagnosticLevelExecutionState.Interrupted)
             {
                 try
                 {
-                    LevelXDeliveryState delivery = await completionNotifier
+                    DiagnosticLevelDeliveryState delivery = await completionNotifier
                         .NotifyAsync(request, current, CancellationToken.None)
                         .ConfigureAwait(false);
 
@@ -763,11 +763,11 @@ public sealed class LevelXExecutionService
                 }
                 catch (Exception callbackException)
                 {
-                    current = current with { DeliveryState = LevelXDeliveryState.CallbackFailed };
+                    current = current with { DeliveryState = DiagnosticLevelDeliveryState.CallbackFailed };
                     await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
                     logger?.LogWarning(
                         callbackException,
-                        "LevelX completion callback processing failed. RunId={RunId}",
+                        "DiagnosticLevel completion callback processing failed. RunId={RunId}",
                         current.RunId);
                 }
             }
@@ -777,7 +777,7 @@ public sealed class LevelXExecutionService
         }
     }
 
-    private LevelXRunRecord NewRun(Guid runId, LevelXRunRequest request, DateTimeOffset now)
+    private DiagnosticLevelRunRecord NewRun(Guid runId, DiagnosticLevelRunRequest request, DateTimeOffset now)
         => new(
             runId,
             request.RequestId,
@@ -786,18 +786,18 @@ public sealed class LevelXExecutionService
             options.Component,
             Environment.MachineName,
             request.Level,
-            LevelXExecutionState.Requested,
-            LevelXDeliveryState.NotAttempted,
+            DiagnosticLevelExecutionState.Requested,
+            DiagnosticLevelDeliveryState.NotAttempted,
             request.RequestedBy,
             request.IssuedAtUtc,
             null,
             null,
             null,
-            LevelXComponentVersion.Capture(options.Application, options.Component, options.CatalogVersion),
+            DiagnosticLevelComponentVersion.Capture(options.Application, options.Component, options.CatalogVersion),
             [],
             LastProgressAtUtc: now);
 
-    private static string ComputeIntegrityHash(LevelXRunRecord run)
+    private static string ComputeIntegrityHash(DiagnosticLevelRunRecord run)
     {
         var payload = new
         {
@@ -831,33 +831,33 @@ public sealed class LevelXExecutionService
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
 
-    private static void ValidateCatalogue(IEnumerable<ILevelXLocalTest> tests)
+    private static void ValidateCatalogue(IEnumerable<IDiagnosticLevelLocalTest> tests)
     {
-        IGrouping<string, ILevelXLocalTest>? duplicate = tests
+        IGrouping<string, IDiagnosticLevelLocalTest>? duplicate = tests
             .GroupBy(x => x.TestId, StringComparer.OrdinalIgnoreCase)
             .FirstOrDefault(x => x.Count() > 1);
         if (duplicate is not null)
-            throw new InvalidOperationException($"Duplicate LevelX TestId '{duplicate.Key}'.");
+            throw new InvalidOperationException($"Duplicate DiagnosticLevel TestId '{duplicate.Key}'.");
 
-        foreach (ILevelXLocalTest test in tests)
+        foreach (IDiagnosticLevelLocalTest test in tests)
         {
             EngineeringDiagnosticPolicy.ValidateLevel(test.Level);
             if (test.IsDestructive && test.Level is EngineeringDiagnosticLevel.Level5Scan or EngineeringDiagnosticLevel.Level4Analysis)
-                throw new InvalidOperationException($"LevelX test '{test.TestId}' is destructive at Level {(int)test.Level}; Levels 5 and 4 must never change state.");
+                throw new InvalidOperationException($"DiagnosticLevel test '{test.TestId}' is destructive at Level {(int)test.Level}; Levels 5 and 4 must never change state.");
         }
     }
 
     private sealed record ActiveRun(Guid RunId, CancellationTokenSource Cancellation);
 }
 
-public static class LevelXRequestSigning
+public static class DiagnosticLevelRequestSigning
 {
     public static string CreateRunRequestSignature(
         string secret,
         string path,
         string timestamp,
         string nonce,
-        LevelXRunRequest request)
+        DiagnosticLevelRunRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         string canonicalBody = string.Join("\n",
@@ -878,7 +878,7 @@ public static class LevelXRequestSigning
         string path,
         string timestamp,
         string nonce,
-        LevelXRunRequest request,
+        DiagnosticLevelRunRequest request,
         string suppliedSignature)
     {
         string expected = CreateRunRequestSignature(secret, path, timestamp, nonce, request);
@@ -902,7 +902,7 @@ public static class LevelXRequestSigning
         string path,
         string timestamp,
         string nonce,
-        LevelXCompletionCallback callback)
+        DiagnosticLevelCompletionCallback callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
         string canonicalBody = string.Join("\n",
@@ -925,7 +925,7 @@ public static class LevelXRequestSigning
         string path,
         string timestamp,
         string nonce,
-        LevelXCompletionCallback callback,
+        DiagnosticLevelCompletionCallback callback,
         string suppliedSignature)
     {
         string expected = CreateCompletionCallbackSignature(
@@ -991,12 +991,12 @@ public static class LevelXRequestSigning
     }
 }
 
-public sealed class LevelXNonceCache
+public sealed class DiagnosticLevelNonceCache
 {
     private readonly ConcurrentDictionary<string, DateTimeOffset> seen = new(StringComparer.Ordinal);
     private readonly TimeSpan lifetime;
 
-    public LevelXNonceCache(TimeSpan? lifetime = null)
+    public DiagnosticLevelNonceCache(TimeSpan? lifetime = null)
     {
         this.lifetime = lifetime ?? TimeSpan.FromMinutes(10);
     }

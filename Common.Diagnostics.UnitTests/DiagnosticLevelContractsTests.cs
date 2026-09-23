@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Common.Diagnostics.UnitTests;
 
-public sealed class LevelXContractsTests
+public sealed class DiagnosticLevelContractsTests
 {
     [Fact]
     public void StarfleetOrder_IsFiveThroughOne_WithIncreasingDepth()

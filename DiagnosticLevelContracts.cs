@@ -118,7 +118,7 @@ public static class EngineeringDiagnosticLevelSemantics
     };
 }
 
-public static class LevelXDiagnosticCodes
+public static class DiagnosticLevelDiagnosticCodes
 {
     public const string StateDerivationMismatch = "STATE_DERIVATION_MISMATCH";
     public const string StaleTelemetry = "STALE_TELEMETRY";

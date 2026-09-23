@@ -5,26 +5,26 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
-public interface ILevelXCompletionNotifier
+public interface IDiagnosticLevelCompletionNotifier
 {
-    Task<LevelXDeliveryState> NotifyAsync(
-        LevelXRunRequest request,
-        LevelXRunRecord run,
+    Task<DiagnosticLevelDeliveryState> NotifyAsync(
+        DiagnosticLevelRunRequest request,
+        DiagnosticLevelRunRecord run,
         CancellationToken cancellationToken = default);
 }
 
-public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, IDisposable
+public sealed class HttpDiagnosticLevelCompletionNotifier : IDiagnosticLevelCompletionNotifier, IDisposable
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly ILevelXRequestCredentialProvider credentialProvider;
-    private readonly LevelXExecutionOptions executionOptions;
-    private readonly ILogger<HttpLevelXCompletionNotifier>? logger;
+    private readonly IDiagnosticLevelRequestCredentialProvider credentialProvider;
+    private readonly DiagnosticLevelExecutionOptions executionOptions;
+    private readonly ILogger<HttpDiagnosticLevelCompletionNotifier>? logger;
     private readonly HttpClient httpClient;
 
-    public HttpLevelXCompletionNotifier(
-        ILevelXRequestCredentialProvider credentialProvider,
-        LevelXExecutionOptions executionOptions,
-        ILogger<HttpLevelXCompletionNotifier>? logger = null)
+    public HttpDiagnosticLevelCompletionNotifier(
+        IDiagnosticLevelRequestCredentialProvider credentialProvider,
+        DiagnosticLevelExecutionOptions executionOptions,
+        ILogger<HttpDiagnosticLevelCompletionNotifier>? logger = null)
     {
         this.credentialProvider = credentialProvider ?? throw new ArgumentNullException(nameof(credentialProvider));
         this.executionOptions = executionOptions ?? throw new ArgumentNullException(nameof(executionOptions));
@@ -32,22 +32,22 @@ public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, ID
         httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
     }
 
-    public async Task<LevelXDeliveryState> NotifyAsync(
-        LevelXRunRequest request,
-        LevelXRunRecord run,
+    public async Task<DiagnosticLevelDeliveryState> NotifyAsync(
+        DiagnosticLevelRunRequest request,
+        DiagnosticLevelRunRecord run,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.CallbackUrl))
-            return LevelXDeliveryState.NotApplicable;
+            return DiagnosticLevelDeliveryState.NotApplicable;
 
         if (!Uri.TryCreate(request.CallbackUrl, UriKind.Absolute, out Uri? callbackUri) ||
             (callbackUri.Scheme != Uri.UriSchemeHttps && !callbackUri.IsLoopback))
         {
             logger?.LogWarning(
-                "LevelX callback URL is invalid or insecure. RunId={RunId} CallbackHost={CallbackHost}",
+                "DiagnosticLevel callback URL is invalid or insecure. RunId={RunId} CallbackHost={CallbackHost}",
                 run.RunId,
                 callbackUri?.Host ?? "invalid");
-            return LevelXDeliveryState.CallbackFailed;
+            return DiagnosticLevelDeliveryState.CallbackFailed;
         }
 
         string? credential = await credentialProvider
@@ -56,12 +56,12 @@ public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, ID
         if (string.IsNullOrWhiteSpace(credential))
         {
             logger?.LogWarning(
-                "LevelX callback credential is unavailable. RunId={RunId}",
+                "DiagnosticLevel callback credential is unavailable. RunId={RunId}",
                 run.RunId);
-            return LevelXDeliveryState.CallbackFailed;
+            return DiagnosticLevelDeliveryState.CallbackFailed;
         }
 
-        var callback = new LevelXCompletionCallback(
+        var callback = new DiagnosticLevelCompletionCallback(
             run.RunId,
             run.RequestId,
             run.CorrelationId,
@@ -70,7 +70,7 @@ public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, ID
         byte[] body = JsonSerializer.SerializeToUtf8Bytes(callback, JsonOptions);
         string timestamp = DateTimeOffset.UtcNow.ToString("O");
         string nonce = Guid.NewGuid().ToString("N");
-        string signature = LevelXRequestSigning.CreateCompletionCallbackSignature(
+        string signature = DiagnosticLevelRequestSigning.CreateCompletionCallbackSignature(
             credential,
             callbackUri.AbsolutePath,
             timestamp,
@@ -101,18 +101,18 @@ public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, ID
             if (response.IsSuccessStatusCode)
             {
                 logger?.LogInformation(
-                    "LevelX completion callback delivered. RunId={RunId} RequestId={RequestId} CorrelationId={CorrelationId}",
+                    "DiagnosticLevel completion callback delivered. RunId={RunId} RequestId={RequestId} CorrelationId={CorrelationId}",
                     run.RunId,
                     run.RequestId,
                     run.CorrelationId);
-                return LevelXDeliveryState.Delivered;
+                return DiagnosticLevelDeliveryState.Delivered;
             }
 
             logger?.LogWarning(
-                "LevelX completion callback failed. RunId={RunId} StatusCode={StatusCode}",
+                "DiagnosticLevel completion callback failed. RunId={RunId} StatusCode={StatusCode}",
                 run.RunId,
                 (int)response.StatusCode);
-            return LevelXDeliveryState.CallbackFailed;
+            return DiagnosticLevelDeliveryState.CallbackFailed;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -122,9 +122,9 @@ public sealed class HttpLevelXCompletionNotifier : ILevelXCompletionNotifier, ID
         {
             logger?.LogWarning(
                 ex,
-                "LevelX completion callback could not be delivered. RunId={RunId}",
+                "DiagnosticLevel completion callback could not be delivered. RunId={RunId}",
                 run.RunId);
-            return LevelXDeliveryState.CallbackFailed;
+            return DiagnosticLevelDeliveryState.CallbackFailed;
         }
     }
 
