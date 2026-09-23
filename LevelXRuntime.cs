@@ -434,7 +434,6 @@ public sealed class LevelXEndpointSecurityOptions
 public interface ILevelXRequestCredentialProvider
 {
     ValueTask<string?> GetCredentialAsync(
-        Microsoft.AspNetCore.Http.HttpContext context,
         CancellationToken cancellationToken = default);
 }
 
@@ -445,7 +444,6 @@ public sealed class StaticLevelXRequestCredentialProvider(LevelXEndpointSecurity
         options ?? throw new ArgumentNullException(nameof(options));
 
     public ValueTask<string?> GetCredentialAsync(
-        Microsoft.AspNetCore.Http.HttpContext context,
         CancellationToken cancellationToken = default)
         => ValueTask.FromResult(
             string.IsNullOrWhiteSpace(options.SharedSecret)
@@ -479,7 +477,7 @@ public static class LevelXRuntimeEndpoints
             if (security.RequireSignedRequests)
             {
                 string? credential = await credentialProvider
-                    .GetCredentialAsync(context, ct)
+                    .GetCredentialAsync(ct)
                     .ConfigureAwait(false);
 
                 if (string.IsNullOrWhiteSpace(credential))
