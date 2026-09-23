@@ -17,6 +17,7 @@ public static class DiagnosticsServiceCollectionExtensions
         services.TryAddSingleton(new LevelXExecutionOptions());
         services.TryAddSingleton(new LevelXEndpointSecurityOptions());
         services.TryAddSingleton<ILevelXRequestCredentialProvider, StaticLevelXRequestCredentialProvider>();
+        services.TryAddSingleton<ILevelXCompletionNotifier, HttpLevelXCompletionNotifier>();
         services.TryAddSingleton<ILevelXRunStore, SqliteLevelXRunStore>();
         services.TryAddSingleton<LevelXNonceCache>();
         services.AddSingleton<LevelXExecutionService>();
