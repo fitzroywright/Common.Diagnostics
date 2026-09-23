@@ -13,6 +13,12 @@ public static class DiagnosticsServiceCollectionExtensions
         services.AddScoped<ILeveledDiagnosticRunner, LeveledDiagnosticRunner>();
         services.AddSingleton<IEngineeringDiagnosticRunStore, JsonEngineeringDiagnosticRunStore>();
         services.AddSingleton<EngineeringDiagnosticEngine>();
+        services.TryAddSingleton(new LevelXStoreOptions());
+        services.TryAddSingleton(new LevelXExecutionOptions());
+        services.TryAddSingleton(new LevelXEndpointSecurityOptions());
+        services.TryAddSingleton<ILevelXRunStore, SqliteLevelXRunStore>();
+        services.TryAddSingleton<LevelXNonceCache>();
+        services.AddSingleton<LevelXExecutionService>();
 
         services.TryAddSingleton(new DiagnosticOperationsOptions());
         services.TryAddSingleton<IDiagnosticSuppressionStore, InMemoryDiagnosticSuppressionStore>();
@@ -51,6 +57,14 @@ public static class DiagnosticsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddScoped<IDiagnosticCheck, TCheck>();
+        return services;
+    }
+
+    public static IServiceCollection AddLevelXTest<TTest>(this IServiceCollection services)
+        where TTest : class, ILevelXLocalTest
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.AddSingleton<ILevelXLocalTest, TTest>();
         return services;
     }
 

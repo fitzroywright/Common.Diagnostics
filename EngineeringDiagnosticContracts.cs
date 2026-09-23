@@ -19,10 +19,14 @@ public enum EngineeringDiagnosticStatus
 
 public enum EngineeringDiagnosticRunState
 {
-    Queued = 1,
+    Requested = 0,
+    Accepted = 1,
     Running = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    Interrupted = 5,
+    NotStarted = 6,
+    Unknown = 7
 }
 
 public sealed record EngineeringDiagnosticCheckResult(

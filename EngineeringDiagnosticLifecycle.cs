@@ -37,14 +37,14 @@ public static class EngineeringDiagnosticLifecycle
             [EngineeringDiagnosticLevel.Level2Repair] = new(
                 EngineeringDiagnosticLevel.Level2Repair,
                 "Repair",
-                "Controlled repair stage. Requires an engineering reason, explicit authorization, and a registered safe action. A diagnostic run must not perform destructive repair automatically.",
+                "Deep environment, resource, recovery and failure diagnostics. Requires an engineering reason for invasive probes. Diagnostic execution does not automatically repair production state.",
                 true,
                 true,
                 false),
             [EngineeringDiagnosticLevel.Level1CriticalIntervention] = new(
                 EngineeringDiagnosticLevel.Level1CriticalIntervention,
                 "Critical Intervention",
-                "Emergency intervention for service-threatening incidents. Requires an engineering reason, explicit high-trust approval, full audit evidence, and a narrowly scoped intervention playbook.",
+                "Deepest exhaustive diagnostic certification, including isolated recovery and failure scenarios where safe. Requires an engineering reason and explicit approval for invasive probes.",
                 true,
                 true,
                 false)

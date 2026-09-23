@@ -5,11 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <PackageId>Common.Diagnostics</PackageId>
     <Version>1.0.0</Version>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsAsErrors>$(WarningsAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsAsErrors>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <Description>Reusable application diagnostics and readiness primitives.</Description>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Common.Diagnostics.UnitTests/**/*.cs" />

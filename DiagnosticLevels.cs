@@ -28,8 +28,8 @@ public static class DiagnosticLevels
             [DiagnosticLevel.Level2] = new(
                 DiagnosticLevel.Level2,
                 "Failure / Recovery Diagnostics",
-                "Controlled failure injection and recovery verification against safe diagnostic targets.",
-                ["Failure injection", "Lease recovery", "Authority outage recovery", "Telemetry recovery", "Failover simulation"]),
+                "Deep environment-resource, failure and recovery verification against safe diagnostic targets.",
+                ["Environment resources", "Failure injection", "Lease recovery", "Authority outage recovery", "Telemetry recovery", "Failover simulation"]),
             [DiagnosticLevel.Level3] = new(
                 DiagnosticLevel.Level3,
                 "Functional Diagnostics",
