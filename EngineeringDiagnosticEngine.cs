@@ -15,8 +15,49 @@ public sealed class EngineeringDiagnosticEngine
         this.runStore = runStore ?? throw new ArgumentNullException(nameof(runStore));
     }
 
-    public async Task<EngineeringDiagnosticRun> RunAsync(
+    public Task<EngineeringDiagnosticRun> RunAsync(
         EngineeringDiagnosticLevel level,
+        DiagnosticTarget target,
+        string application,
+        string environment,
+        string requestedBy,
+        string? reason,
+        IEnumerable<EngineeringDiagnosticCheckDefinition> checkDefinitions,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return RunCoreAsync(
+            level,
+            target,
+            application,
+            environment,
+            requestedBy,
+            reason,
+            checkDefinitions,
+            cancellationToken);
+    }
+
+    public Task<EngineeringDiagnosticRun> RunAsync(
+        EngineeringDiagnosticLevel level,
+        string application,
+        string environment,
+        string requestedBy,
+        string? reason,
+        IEnumerable<EngineeringDiagnosticCheckDefinition> checkDefinitions,
+        CancellationToken cancellationToken = default)
+        => RunCoreAsync(
+            level,
+            DiagnosticTarget.EntireControlPlane(),
+            application,
+            environment,
+            requestedBy,
+            reason,
+            checkDefinitions,
+            cancellationToken);
+
+    private async Task<EngineeringDiagnosticRun> RunCoreAsync(
+        EngineeringDiagnosticLevel level,
+        DiagnosticTarget target,
         string application,
         string environment,
         string requestedBy,
@@ -84,8 +125,9 @@ public sealed class EngineeringDiagnosticEngine
             checks.Add(EngineeringDiagnosticPolicy.CreateInterventionGate(level, reason));
         }
 
+        Guid runId = Guid.NewGuid();
         EngineeringDiagnosticRun run = new(
-            Guid.NewGuid(),
+            runId,
             level,
             application.Trim(),
             environment.Trim(),
@@ -94,7 +136,12 @@ public sealed class EngineeringDiagnosticEngine
             startedAt,
             DateTimeOffset.UtcNow,
             EngineeringDiagnosticPolicy.CalculateStatus(checks),
-            checks);
+            checks,
+            CorrelationId: runId,
+            TargetType: target.Type,
+            TargetId: target.TargetId,
+            ApplicationId: target.ApplicationId,
+            InstanceId: target.InstanceId);
 
         await runStore.SaveAsync(run, cancellationToken);
         return run;
