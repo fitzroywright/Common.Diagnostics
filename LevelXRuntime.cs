@@ -431,6 +431,59 @@ public sealed class LevelXExecutionOptions
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(5);
 }
 
+public static class LevelXRuntimeEndpoints
+{
+    public static void MapLevelXRuntime(
+        this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder endpoints,
+        string routePrefix = "/api/engineering/diagnostics/levelx")
+    {
+        endpoints.MapPost(routePrefix + "/run", async (
+            LevelXRunRequest request,
+            LevelXExecutionService service,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                LevelXRunAccepted accepted = await service.AcceptAsync(request, ct).ConfigureAwait(false);
+                return Microsoft.AspNetCore.Http.Results.Accepted(value: accepted);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Microsoft.AspNetCore.Http.Results.Conflict(new { error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return Microsoft.AspNetCore.Http.Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        endpoints.MapGet(routePrefix + "/runs/{runId:guid}", async (
+            Guid runId,
+            ILevelXRunStore store,
+            CancellationToken ct) =>
+        {
+            LevelXRunRecord? run = await store.GetAsync(runId, ct).ConfigureAwait(false);
+            return run is null
+                ? Microsoft.AspNetCore.Http.Results.NotFound()
+                : Microsoft.AspNetCore.Http.Results.Ok(run);
+        });
+
+        endpoints.MapGet(routePrefix + "/history", async (
+            ILevelXRunStore store,
+            CancellationToken ct) =>
+            Microsoft.AspNetCore.Http.Results.Ok(
+                await store.QueryAsync(new LevelXHistoryQuery(), ct).ConfigureAwait(false)));
+
+        endpoints.MapPost(routePrefix + "/runs/{runId:guid}/cancel", async (
+            Guid runId,
+            LevelXExecutionService service,
+            CancellationToken ct) =>
+            await service.CancelAsync(runId, ct).ConfigureAwait(false)
+                ? Microsoft.AspNetCore.Http.Results.Accepted()
+                : Microsoft.AspNetCore.Http.Results.NotFound());
+    }
+}
+
 public sealed class LevelXExecutionService
 {
     private readonly IReadOnlyList<ILevelXLocalTest> tests;
