@@ -13,14 +13,14 @@ public static class DiagnosticsServiceCollectionExtensions
         services.AddScoped<ILeveledDiagnosticRunner, LeveledDiagnosticRunner>();
         services.AddSingleton<IEngineeringDiagnosticRunStore, JsonEngineeringDiagnosticRunStore>();
         services.AddSingleton<EngineeringDiagnosticEngine>();
-        services.TryAddSingleton(new LevelXStoreOptions());
-        services.TryAddSingleton(new LevelXExecutionOptions());
-        services.TryAddSingleton(new LevelXEndpointSecurityOptions());
-        services.TryAddSingleton<ILevelXRequestCredentialProvider, StaticLevelXRequestCredentialProvider>();
-        services.TryAddSingleton<ILevelXCompletionNotifier, HttpLevelXCompletionNotifier>();
-        services.TryAddSingleton<ILevelXRunStore, SqliteLevelXRunStore>();
-        services.TryAddSingleton<LevelXNonceCache>();
-        services.AddSingleton<LevelXExecutionService>();
+        services.TryAddSingleton(new DiagnosticLevelStoreOptions());
+        services.TryAddSingleton(new DiagnosticLevelExecutionOptions());
+        services.TryAddSingleton(new DiagnosticLevelEndpointSecurityOptions());
+        services.TryAddSingleton<IDiagnosticLevelRequestCredentialProvider, StaticDiagnosticLevelRequestCredentialProvider>();
+        services.TryAddSingleton<IDiagnosticLevelCompletionNotifier, HttpDiagnosticLevelCompletionNotifier>();
+        services.TryAddSingleton<IDiagnosticLevelRunStore, SqliteDiagnosticLevelRunStore>();
+        services.TryAddSingleton<DiagnosticLevelNonceCache>();
+        services.AddSingleton<DiagnosticLevelExecutionService>();
 
         services.TryAddSingleton(new DiagnosticOperationsOptions());
         services.TryAddSingleton<IDiagnosticSuppressionStore, InMemoryDiagnosticSuppressionStore>();
@@ -62,11 +62,11 @@ public static class DiagnosticsServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddLevelXTest<TTest>(this IServiceCollection services)
-        where TTest : class, ILevelXLocalTest
+    public static IServiceCollection AddDiagnosticLevelTest<TTest>(this IServiceCollection services)
+        where TTest : class, IDiagnosticLevelLocalTest
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.AddSingleton<ILevelXLocalTest, TTest>();
+        services.AddSingleton<IDiagnosticLevelLocalTest, TTest>();
         return services;
     }
 
