@@ -709,7 +709,7 @@ public sealed class DiagnosticLevelExecutionService
                 CurrentTestId = null,
                 Tests = results.ToArray()
             };
-            current = current with { IntegrityHash = ComputeIntegrityHash(current) };
+            current = current with { IntegrityHash = DiagnosticLevelIntegrity.ComputeHash(current) };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -724,7 +724,7 @@ public sealed class DiagnosticLevelExecutionService
                 Tests = results.ToArray(),
                 Failure = "Cancelled at a safe test boundary."
             };
-            current = current with { IntegrityHash = ComputeIntegrityHash(current) };
+            current = current with { IntegrityHash = DiagnosticLevelIntegrity.ComputeHash(current) };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -739,7 +739,7 @@ public sealed class DiagnosticLevelExecutionService
                 Tests = results.ToArray(),
                 Failure = ex.Message
             };
-            current = current with { IntegrityHash = ComputeIntegrityHash(current) };
+            current = current with { IntegrityHash = DiagnosticLevelIntegrity.ComputeHash(current) };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
             logger?.LogError(ex, "DiagnosticLevel run interrupted. RunId={RunId}", current.RunId);
         }
@@ -797,8 +797,32 @@ public sealed class DiagnosticLevelExecutionService
             [],
             LastProgressAtUtc: now);
 
-    private static string ComputeIntegrityHash(DiagnosticLevelRunRecord run)
+    private static void ValidateCatalogue(IEnumerable<IDiagnosticLevelLocalTest> tests)
     {
+        IGrouping<string, IDiagnosticLevelLocalTest>? duplicate = tests
+            .GroupBy(x => x.TestId, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(x => x.Count() > 1);
+        if (duplicate is not null)
+            throw new InvalidOperationException($"Duplicate DiagnosticLevel TestId '{duplicate.Key}'.");
+
+        foreach (IDiagnosticLevelLocalTest test in tests)
+        {
+            EngineeringDiagnosticPolicy.ValidateLevel(test.Level);
+            if (test.IsDestructive && test.Level is EngineeringDiagnosticLevel.Level5Scan or EngineeringDiagnosticLevel.Level4Analysis)
+                throw new InvalidOperationException($"DiagnosticLevel test '{test.TestId}' is destructive at Level {(int)test.Level}; Levels 5 and 4 must never change state.");
+        }
+    }
+
+    private sealed record ActiveRun(Guid RunId, CancellationTokenSource Cancellation);
+}
+
+public static class DiagnosticLevelIntegrity
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public static string ComputeHash(DiagnosticLevelRunRecord run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
         var payload = new
         {
             run.RunId,
@@ -827,27 +851,31 @@ public sealed class DiagnosticLevelExecutionService
                 x.Code
             }).ToArray()
         };
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload, IntegrityJsonOptions);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions);
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
 
-    private static void ValidateCatalogue(IEnumerable<IDiagnosticLevelLocalTest> tests)
+    public static bool Verify(DiagnosticLevelRunRecord run)
     {
-        IGrouping<string, IDiagnosticLevelLocalTest>? duplicate = tests
-            .GroupBy(x => x.TestId, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault(x => x.Count() > 1);
-        if (duplicate is not null)
-            throw new InvalidOperationException($"Duplicate DiagnosticLevel TestId '{duplicate.Key}'.");
+        if (run is null || string.IsNullOrWhiteSpace(run.IntegrityHash))
+            return false;
 
-        foreach (IDiagnosticLevelLocalTest test in tests)
+        string expected = ComputeHash(run);
+        byte[] left;
+        byte[] right;
+        try
         {
-            EngineeringDiagnosticPolicy.ValidateLevel(test.Level);
-            if (test.IsDestructive && test.Level is EngineeringDiagnosticLevel.Level5Scan or EngineeringDiagnosticLevel.Level4Analysis)
-                throw new InvalidOperationException($"DiagnosticLevel test '{test.TestId}' is destructive at Level {(int)test.Level}; Levels 5 and 4 must never change state.");
+            left = Convert.FromHexString(expected);
+            right = Convert.FromHexString(run.IntegrityHash);
         }
-    }
+        catch (FormatException)
+        {
+            return false;
+        }
 
-    private sealed record ActiveRun(Guid RunId, CancellationTokenSource Cancellation);
+        return left.Length == right.Length &&
+            CryptographicOperations.FixedTimeEquals(left, right);
+    }
 }
 
 public static class DiagnosticLevelRequestSigning

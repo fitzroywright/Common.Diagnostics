@@ -123,6 +123,46 @@ public sealed class DiagnosticLevelRuntimeTests
     }
 
     [Fact]
+    public void ResultIntegrityDetectsPayloadTampering()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var run = new DiagnosticLevelRunRecord(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "App",
+            "Service",
+            "host",
+            EngineeringDiagnosticLevel.Level4Analysis,
+            DiagnosticLevelExecutionState.Completed,
+            DiagnosticLevelDeliveryState.CallbackPending,
+            "operator",
+            now,
+            now,
+            now,
+            now,
+            new DiagnosticLevelComponentVersion("App", "Service", "1.2.3"),
+            [new DiagnosticLevelTestResult(
+                "APP.L4.001",
+                "Probe",
+                "App",
+                EngineeringDiagnosticLevel.Level4Analysis,
+                EngineeringDiagnosticStatus.Passed,
+                now,
+                now,
+                "ok")]);
+
+        run = run with { IntegrityHash = DiagnosticLevelIntegrity.ComputeHash(run) };
+        Assert.True(DiagnosticLevelIntegrity.Verify(run));
+
+        DiagnosticLevelRunRecord tampered = run with
+        {
+            Tests = [run.Tests[0] with { Summary = "tampered" }]
+        };
+        Assert.False(DiagnosticLevelIntegrity.Verify(tampered));
+    }
+
+    [Fact]
     public void NonceCannotBeReused()
     {
         DiagnosticLevelNonceCache cache = new(TimeSpan.FromMinutes(10));
