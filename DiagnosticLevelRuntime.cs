@@ -526,9 +526,21 @@ public static class DiagnosticLevelRuntimeEndpoints
 
         endpoints.MapGet(routePrefix + "/runs/{runId:guid}", async (
             Guid runId,
+            Microsoft.AspNetCore.Http.HttpContext context,
             IDiagnosticLevelRunStore store,
+            DiagnosticLevelEndpointSecurityOptions security,
+            IDiagnosticLevelRequestCredentialProvider credentialProvider,
+            DiagnosticLevelNonceCache nonceCache,
             CancellationToken ct) =>
         {
+            Microsoft.AspNetCore.Http.IResult? auth = await RequireSignedRequestAsync(
+                context,
+                security,
+                credentialProvider,
+                nonceCache,
+                ct).ConfigureAwait(false);
+            if (auth is not null) return auth;
+
             DiagnosticLevelRunRecord? run = await store.GetAsync(runId, ct).ConfigureAwait(false);
             return run is null
                 ? Microsoft.AspNetCore.Http.Results.NotFound()
@@ -536,18 +548,89 @@ public static class DiagnosticLevelRuntimeEndpoints
         });
 
         endpoints.MapGet(routePrefix + "/history", async (
+            Microsoft.AspNetCore.Http.HttpContext context,
             IDiagnosticLevelRunStore store,
+            DiagnosticLevelEndpointSecurityOptions security,
+            IDiagnosticLevelRequestCredentialProvider credentialProvider,
+            DiagnosticLevelNonceCache nonceCache,
             CancellationToken ct) =>
-            Microsoft.AspNetCore.Http.Results.Ok(
-                await store.QueryAsync(new DiagnosticLevelHistoryQuery(), ct).ConfigureAwait(false)));
+        {
+            Microsoft.AspNetCore.Http.IResult? auth = await RequireSignedRequestAsync(
+                context,
+                security,
+                credentialProvider,
+                nonceCache,
+                ct).ConfigureAwait(false);
+            if (auth is not null) return auth;
+
+            return Microsoft.AspNetCore.Http.Results.Ok(
+                await store.QueryAsync(new DiagnosticLevelHistoryQuery(), ct).ConfigureAwait(false));
+        });
 
         endpoints.MapPost(routePrefix + "/runs/{runId:guid}/cancel", async (
             Guid runId,
+            Microsoft.AspNetCore.Http.HttpContext context,
             DiagnosticLevelExecutionService service,
+            DiagnosticLevelEndpointSecurityOptions security,
+            IDiagnosticLevelRequestCredentialProvider credentialProvider,
+            DiagnosticLevelNonceCache nonceCache,
             CancellationToken ct) =>
-            await service.CancelAsync(runId, ct).ConfigureAwait(false)
+        {
+            Microsoft.AspNetCore.Http.IResult? auth = await RequireSignedRequestAsync(
+                context,
+                security,
+                credentialProvider,
+                nonceCache,
+                ct).ConfigureAwait(false);
+            if (auth is not null) return auth;
+
+            return await service.CancelAsync(runId, ct).ConfigureAwait(false)
                 ? Microsoft.AspNetCore.Http.Results.Accepted()
-                : Microsoft.AspNetCore.Http.Results.NotFound());
+                : Microsoft.AspNetCore.Http.Results.NotFound();
+        });
+    }
+
+    private static async Task<Microsoft.AspNetCore.Http.IResult?> RequireSignedRequestAsync(
+        Microsoft.AspNetCore.Http.HttpContext context,
+        DiagnosticLevelEndpointSecurityOptions security,
+        IDiagnosticLevelRequestCredentialProvider credentialProvider,
+        DiagnosticLevelNonceCache nonceCache,
+        CancellationToken cancellationToken)
+    {
+        if (!security.RequireSignedRequests)
+            return null;
+
+        string? credential = await credentialProvider
+            .GetCredentialAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(credential))
+            return Microsoft.AspNetCore.Http.Results.Problem(
+                "DiagnosticLevel signed-request authentication is required but no per-install credential is available.",
+                statusCode: Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable);
+
+        string timestamp = context.Request.Headers["X-Aegis-Diagnostics-Timestamp"].ToString();
+        string nonce = context.Request.Headers["X-Aegis-Diagnostics-Nonce"].ToString();
+        string signature = context.Request.Headers["X-Aegis-Diagnostics-Signature"].ToString();
+
+        if (!DateTimeOffset.TryParse(timestamp, out DateTimeOffset issuedAt) ||
+            DateTimeOffset.UtcNow - issuedAt > security.MaxClockSkew ||
+            issuedAt - DateTimeOffset.UtcNow > security.MaxClockSkew)
+            return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        if (!nonceCache.TryUse(nonce, DateTimeOffset.UtcNow))
+            return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        if (string.IsNullOrWhiteSpace(signature) ||
+            !DiagnosticLevelRequestSigning.VerifyRequest(
+                credential,
+                context.Request.Method,
+                context.Request.Path,
+                timestamp,
+                nonce,
+                signature))
+            return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+        return null;
     }
 }
 
@@ -880,6 +963,23 @@ public static class DiagnosticLevelIntegrity
 
 public static class DiagnosticLevelRequestSigning
 {
+    public static string CreateRequestSignature(
+        string secret,
+        string method,
+        string path,
+        string timestamp,
+        string nonce)
+        => CreateSignature(secret, method, path, timestamp, nonce, ReadOnlySpan<byte>.Empty);
+
+    public static bool VerifyRequest(
+        string secret,
+        string method,
+        string path,
+        string timestamp,
+        string nonce,
+        string suppliedSignature)
+        => Verify(secret, method, path, timestamp, nonce, ReadOnlySpan<byte>.Empty, suppliedSignature);
+
     public static string CreateRunRequestSignature(
         string secret,
         string path,
