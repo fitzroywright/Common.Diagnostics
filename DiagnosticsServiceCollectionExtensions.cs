@@ -16,6 +16,7 @@ public static class DiagnosticsServiceCollectionExtensions
         services.TryAddSingleton(new LevelXStoreOptions());
         services.TryAddSingleton(new LevelXExecutionOptions());
         services.TryAddSingleton(new LevelXEndpointSecurityOptions());
+        services.TryAddSingleton<ILevelXRequestCredentialProvider, StaticLevelXRequestCredentialProvider>();
         services.TryAddSingleton<ILevelXRunStore, SqliteLevelXRunStore>();
         services.TryAddSingleton<LevelXNonceCache>();
         services.AddSingleton<LevelXExecutionService>();
