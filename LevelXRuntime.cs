@@ -424,6 +424,13 @@ public sealed class DelegateLevelXLocalTest : ILevelXLocalTest
     public Task<EngineeringDiagnosticCheckResult> RunAsync(CancellationToken cancellationToken) => run(cancellationToken);
 }
 
+public sealed class LevelXEndpointSecurityOptions
+{
+    public string? SharedSecret { get; set; }
+    public TimeSpan MaxClockSkew { get; set; } = TimeSpan.FromMinutes(2);
+    public bool RequireSignedRequests { get; set; } = true;
+}
+
 public sealed class LevelXExecutionOptions
 {
     public string Application { get; set; } = "Unknown";
@@ -440,9 +447,42 @@ public static class LevelXRuntimeEndpoints
     {
         endpoints.MapPost(routePrefix + "/run", async (
             LevelXRunRequest request,
+            Microsoft.AspNetCore.Http.HttpContext context,
             LevelXExecutionService service,
+            LevelXEndpointSecurityOptions security,
+            LevelXNonceCache nonceCache,
             CancellationToken ct) =>
         {
+            if (security.RequireSignedRequests)
+            {
+                if (string.IsNullOrWhiteSpace(security.SharedSecret))
+                    return Microsoft.AspNetCore.Http.Results.Problem(
+                        "LevelX signed-request authentication is required but no per-install credential is configured.",
+                        statusCode: Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable);
+
+                string timestamp = context.Request.Headers["X-Aegis-Diagnostics-Timestamp"].ToString();
+                string nonce = context.Request.Headers["X-Aegis-Diagnostics-Nonce"].ToString();
+                string signature = context.Request.Headers["X-Aegis-Diagnostics-Signature"].ToString();
+
+                if (!DateTimeOffset.TryParse(timestamp, out DateTimeOffset issuedAt) ||
+                    DateTimeOffset.UtcNow - issuedAt > security.MaxClockSkew ||
+                    issuedAt - DateTimeOffset.UtcNow > security.MaxClockSkew)
+                    return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+                if (!nonceCache.TryUse(nonce, DateTimeOffset.UtcNow))
+                    return Microsoft.AspNetCore.Http.Results.Unauthorized();
+
+                if (string.IsNullOrWhiteSpace(signature) ||
+                    !LevelXRequestSigning.VerifyRunRequest(
+                        security.SharedSecret,
+                        context.Request.Path,
+                        timestamp,
+                        nonce,
+                        request,
+                        signature))
+                    return Microsoft.AspNetCore.Http.Results.Unauthorized();
+            }
+
             try
             {
                 LevelXRunAccepted accepted = await service.AcceptAsync(request, ct).ConfigureAwait(false);
@@ -756,6 +796,51 @@ public sealed class LevelXExecutionService
 
 public static class LevelXRequestSigning
 {
+    public static string CreateRunRequestSignature(
+        string secret,
+        string path,
+        string timestamp,
+        string nonce,
+        LevelXRunRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        string canonicalBody = string.Join("\n",
+            request.RequestId.ToString("D"),
+            request.CorrelationId.ToString("D"),
+            ((int)request.Level).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            request.RequestedBy ?? string.Empty,
+            request.Reason ?? string.Empty,
+            request.CallbackUrl ?? string.Empty,
+            request.IssuedAtUtc.ToUniversalTime().ToString("O"),
+            request.ExpiresAtUtc.ToUniversalTime().ToString("O"));
+        byte[] body = Encoding.UTF8.GetBytes(canonicalBody);
+        return CreateSignature(secret, "POST", path, timestamp, nonce, body);
+    }
+
+    public static bool VerifyRunRequest(
+        string secret,
+        string path,
+        string timestamp,
+        string nonce,
+        LevelXRunRequest request,
+        string suppliedSignature)
+    {
+        string expected = CreateRunRequestSignature(secret, path, timestamp, nonce, request);
+        byte[] left;
+        byte[] right;
+        try
+        {
+            left = Convert.FromHexString(expected);
+            right = Convert.FromHexString(suppliedSignature);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
+    }
+
     public static string CreateSignature(
         string secret,
         string method,
