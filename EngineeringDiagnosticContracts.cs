@@ -17,6 +17,14 @@ public enum EngineeringDiagnosticStatus
     InterventionRequired = 4
 }
 
+public enum EngineeringDiagnosticRunState
+{
+    Queued = 1,
+    Running = 2,
+    Completed = 3,
+    Cancelled = 4
+}
+
 public sealed record EngineeringDiagnosticCheckResult(
     string CheckId,
     string Name,
@@ -45,7 +53,11 @@ public sealed record EngineeringDiagnosticRun(
     DiagnosticTargetType TargetType = DiagnosticTargetType.ControlPlane,
     string? TargetId = null,
     string? ApplicationId = null,
-    string? InstanceId = null);
+    string? InstanceId = null,
+    DateTimeOffset? RequestedAtUtc = null,
+    EngineeringDiagnosticRunState RunState = EngineeringDiagnosticRunState.Completed,
+    string? CurrentStage = null,
+    int ProgressPercent = 100);
 
 public sealed record EngineeringDiagnosticRunRequest(
     EngineeringDiagnosticLevel Level,
