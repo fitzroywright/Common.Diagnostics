@@ -76,6 +76,53 @@ public sealed class LevelXRuntimeTests
     }
 
     [Fact]
+    public void CompletionCallbackSignatureDetectsTampering()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        Guid runId = Guid.NewGuid();
+        Guid requestId = Guid.NewGuid();
+        Guid correlationId = Guid.NewGuid();
+        var version = new LevelXComponentVersion("App", "Service", "1.2.3");
+        var run = new LevelXRunRecord(
+            runId, requestId, correlationId, "App", "Service", "host",
+            EngineeringDiagnosticLevel.Level4Analysis,
+            LevelXExecutionState.Completed,
+            LevelXDeliveryState.CallbackPending,
+            "operator",
+            now, now, now, now,
+            version,
+            [],
+            "abc123");
+        var callback = new LevelXCompletionCallback(runId, requestId, correlationId, run);
+
+        string timestamp = now.ToString("O");
+        string signature = LevelXRequestSigning.CreateCompletionCallbackSignature(
+            "secret",
+            "/api/engineering/diagnostics/levelx/callback",
+            timestamp,
+            "nonce-callback",
+            callback);
+
+        Assert.True(LevelXRequestSigning.VerifyCompletionCallback(
+            "secret",
+            "/api/engineering/diagnostics/levelx/callback",
+            timestamp,
+            "nonce-callback",
+            callback,
+            signature));
+
+        var tamperedRun = run with { IntegrityHash = "tampered" };
+        var tampered = callback with { Run = tamperedRun };
+        Assert.False(LevelXRequestSigning.VerifyCompletionCallback(
+            "secret",
+            "/api/engineering/diagnostics/levelx/callback",
+            timestamp,
+            "nonce-callback",
+            tampered,
+            signature));
+    }
+
+    [Fact]
     public void NonceCannotBeReused()
     {
         LevelXNonceCache cache = new(TimeSpan.FromMinutes(10));
