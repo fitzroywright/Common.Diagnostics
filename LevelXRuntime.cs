@@ -455,6 +455,7 @@ public sealed class LevelXExecutionOptions
 {
     public string Application { get; set; } = "Unknown";
     public string Component { get; set; } = "Unknown";
+    public string? InstanceId { get; set; }
     public string CatalogVersion { get; set; } = "1";
     public TimeSpan StaleAfter { get; set; } = TimeSpan.FromMinutes(5);
 }
@@ -556,6 +557,7 @@ public sealed class LevelXExecutionService
     private readonly IReadOnlyList<ILevelXLocalTest> tests;
     private readonly ILevelXRunStore store;
     private readonly LevelXExecutionOptions options;
+    private readonly ILevelXCompletionNotifier completionNotifier;
     private readonly ILogger<LevelXExecutionService>? logger;
     private readonly ConcurrentDictionary<string, ActiveRun> active = new(StringComparer.OrdinalIgnoreCase);
 
@@ -563,11 +565,13 @@ public sealed class LevelXExecutionService
         IEnumerable<ILevelXLocalTest> tests,
         ILevelXRunStore store,
         LevelXExecutionOptions options,
+        ILevelXCompletionNotifier completionNotifier,
         ILogger<LevelXExecutionService>? logger = null)
     {
         this.tests = tests?.ToArray() ?? throw new ArgumentNullException(nameof(tests));
         this.store = store ?? throw new ArgumentNullException(nameof(store));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
+        this.completionNotifier = completionNotifier ?? throw new ArgumentNullException(nameof(completionNotifier));
         this.logger = logger;
         ValidateCatalogue(this.tests);
     }
@@ -741,6 +745,33 @@ public sealed class LevelXExecutionService
         }
         finally
         {
+            if (current.ExecutionState is LevelXExecutionState.Completed or
+                LevelXExecutionState.Cancelled or
+                LevelXExecutionState.Interrupted)
+            {
+                try
+                {
+                    LevelXDeliveryState delivery = await completionNotifier
+                        .NotifyAsync(request, current, CancellationToken.None)
+                        .ConfigureAwait(false);
+
+                    if (delivery != current.DeliveryState)
+                    {
+                        current = current with { DeliveryState = delivery };
+                        await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception callbackException)
+                {
+                    current = current with { DeliveryState = LevelXDeliveryState.CallbackFailed };
+                    await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
+                    logger?.LogWarning(
+                        callbackException,
+                        "LevelX completion callback processing failed. RunId={RunId}",
+                        current.RunId);
+                }
+            }
+
             active.TryRemove(key, out ActiveRun? removed);
             removed?.Cancellation.Dispose();
         }
@@ -864,6 +895,59 @@ public static class LevelXRequestSigning
         }
 
         return left.Length == right.Length && CryptographicOperations.FixedTimeEquals(left, right);
+    }
+
+    public static string CreateCompletionCallbackSignature(
+        string secret,
+        string path,
+        string timestamp,
+        string nonce,
+        LevelXCompletionCallback callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        string canonicalBody = string.Join("\n",
+            callback.RunId.ToString("D"),
+            callback.RequestId.ToString("D"),
+            callback.CorrelationId.ToString("D"),
+            callback.Run.Application ?? string.Empty,
+            callback.Run.Component ?? string.Empty,
+            ((int)callback.Run.Level).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ((int)callback.Run.ExecutionState).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            callback.Run.Version.Version ?? "Unknown",
+            callback.Run.IntegrityHash ?? string.Empty,
+            callback.Run.CompletedAtUtc?.ToUniversalTime().ToString("O") ?? string.Empty);
+        byte[] body = Encoding.UTF8.GetBytes(canonicalBody);
+        return CreateSignature(secret, "POST", path, timestamp, nonce, body);
+    }
+
+    public static bool VerifyCompletionCallback(
+        string secret,
+        string path,
+        string timestamp,
+        string nonce,
+        LevelXCompletionCallback callback,
+        string suppliedSignature)
+    {
+        string expected = CreateCompletionCallbackSignature(
+            secret,
+            path,
+            timestamp,
+            nonce,
+            callback);
+        byte[] left;
+        byte[] right;
+        try
+        {
+            left = Convert.FromHexString(expected);
+            right = Convert.FromHexString(suppliedSignature);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+
+        return left.Length == right.Length &&
+            CryptographicOperations.FixedTimeEquals(left, right);
     }
 
     public static string CreateSignature(
