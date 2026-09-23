@@ -22,7 +22,10 @@ public sealed record EngineeringDiagnosticCheckResult(
     string Name,
     EngineeringDiagnosticStatus Status,
     string Summary,
-    string? Evidence = null);
+    string? Evidence = null,
+    string? Expected = null,
+    string? Actual = null,
+    string? Code = null);
 
 public sealed record EngineeringDiagnosticRun(
     Guid RunId,
@@ -37,11 +40,21 @@ public sealed record EngineeringDiagnosticRun(
     IReadOnlyList<EngineeringDiagnosticCheckResult> Checks,
     DateTimeOffset? ResolvedAt = null,
     string? ResolvedBy = null,
-    string? Resolution = null);
+    string? Resolution = null,
+    Guid? CorrelationId = null,
+    DiagnosticTargetType TargetType = DiagnosticTargetType.ControlPlane,
+    string? TargetId = null,
+    string? ApplicationId = null,
+    string? InstanceId = null);
 
 public sealed record EngineeringDiagnosticRunRequest(
     EngineeringDiagnosticLevel Level,
-    string? Reason);
+    string? Reason,
+    DiagnosticTargetType TargetType = DiagnosticTargetType.ControlPlane,
+    string? TargetId = null,
+    string? ApplicationId = null,
+    string? InstanceId = null,
+    bool AcknowledgeDisruption = false);
 
 public sealed record EngineeringDiagnosticResolutionRequest(string Resolution);
 
