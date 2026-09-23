@@ -27,7 +27,7 @@ public static class DiagnosticLevels
                 ["Complete certification", "Destructive-isolated scenarios", "Security validation", "Recovery validation", "Disaster recovery readiness"]),
             [DiagnosticLevel.Level2] = new(
                 DiagnosticLevel.Level2,
-                "Environment / Recovery Diagnostics",
+                "Failure / Recovery Diagnostics",
                 "Deep environment-resource, failure and recovery verification against safe diagnostic targets.",
                 ["Environment resources", "Failure injection", "Lease recovery", "Authority outage recovery", "Telemetry recovery", "Failover simulation"]),
             [DiagnosticLevel.Level3] = new(
