@@ -4,7 +4,8 @@ public enum DiagnosticTargetType
 {
     ControlPlane = 1,
     ControlPlaneComponent = 2,
-    RegisteredApplication = 3
+    RegisteredApplication = 3,
+    CommonComponent = 4
 }
 
 public static class ControlPlaneDiagnosticTargets
@@ -25,6 +26,27 @@ public static class ControlPlaneDiagnosticTargets
         };
 }
 
+public static class CommonDiagnosticTargets
+{
+    public const string Diagnostics = "Common.Diagnostics";
+    public const string Registration = "Common.Registration";
+    public const string Security = "Common.Security";
+    public const string Secrets = "Common.Secrets";
+    public const string Messaging = "Common.Messaging";
+    public const string Storage = "Common.Storage";
+
+    public static readonly IReadOnlySet<string> Components =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Diagnostics,
+            Registration,
+            Security,
+            Secrets,
+            Messaging,
+            Storage
+        };
+}
+
 public sealed record DiagnosticTarget(
     DiagnosticTargetType Type,
     string TargetId,
@@ -40,6 +62,13 @@ public sealed record DiagnosticTarget(
         if (!ControlPlaneDiagnosticTargets.Components.Contains(component))
             throw new ArgumentOutOfRangeException(nameof(component), $"Unknown Control Plane component '{component}'.");
         return new(DiagnosticTargetType.ControlPlaneComponent, component, Component: component);
+    }
+
+    public static DiagnosticTarget CommonComponent(string component)
+    {
+        if (!CommonDiagnosticTargets.Components.Contains(component))
+            throw new ArgumentOutOfRangeException(nameof(component), $"Unknown Common component '{component}'.");
+        return new(DiagnosticTargetType.CommonComponent, component, Component: component);
     }
 
     public static DiagnosticTarget RegisteredApplication(string applicationId, string instanceId)
