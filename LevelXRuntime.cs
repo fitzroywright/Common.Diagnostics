@@ -377,7 +377,7 @@ public sealed class SqliteLevelXRunStore : ILevelXRunStore
     }
 
     private static SqliteConnection Open(string path)
-        => new(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Shared }.ToString());
+        => new(new SqliteConnectionStringBuilder { DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Cache = SqliteCacheMode.Shared, Pooling = false }.ToString());
 
     private static void Add(SqliteCommand command, string name, object? value)
         => command.Parameters.AddWithValue(name, value ?? DBNull.Value);
