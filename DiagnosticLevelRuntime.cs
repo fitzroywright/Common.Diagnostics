@@ -111,6 +111,7 @@ public sealed record DiagnosticLevelRunRecord(
     IReadOnlyList<DiagnosticLevelTestResult> Tests,
     string? IntegrityHash = null,
     string? CurrentTestId = null,
+    string? CurrentTestName = null,
     string? Failure = null,
     DateTimeOffset? LastProgressAtUtc = null)
 {
@@ -738,7 +739,13 @@ public sealed class DiagnosticLevelExecutionService
                     throw new InvalidOperationException($"Test {test.TestId} violates the non-destructive Level 5/4 rule.");
 
                 DateTimeOffset testStarted = DateTimeOffset.UtcNow;
-                current = current with { CurrentTestId = test.TestId, LastProgressAtUtc = testStarted, Tests = results.ToArray() };
+                current = current with
+                {
+                    CurrentTestId = test.TestId,
+                    CurrentTestName = test.Name,
+                    LastProgressAtUtc = testStarted,
+                    Tests = results.ToArray()
+                };
                 await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
 
                 EngineeringDiagnosticCheckResult raw;
@@ -790,6 +797,7 @@ public sealed class DiagnosticLevelExecutionService
                 CompletedAtUtc = completed,
                 LastProgressAtUtc = completed,
                 CurrentTestId = null,
+                CurrentTestName = null,
                 Tests = results.ToArray()
             };
             current = current with { IntegrityHash = DiagnosticLevelIntegrity.ComputeHash(current) };
