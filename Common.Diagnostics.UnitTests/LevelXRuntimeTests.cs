@@ -48,6 +48,33 @@ public sealed class LevelXRuntimeTests
             "secret", "POST", "/diagnostics/run", "2026-09-22T00:00:00Z", "nonce-2", body, signature));
     }
 
+
+    [Fact]
+    public void CanonicalRunRequestSignatureDetectsFieldTampering()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        LevelXRunRequest request = new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            EngineeringDiagnosticLevel.Level4Analysis,
+            "operator",
+            "reason",
+            "https://control.example/callback",
+            now,
+            now.AddMinutes(2));
+
+        string timestamp = now.ToString("O");
+        string signature = LevelXRequestSigning.CreateRunRequestSignature(
+            "secret", "/api/engineering/diagnostics/levelx/run", timestamp, "nonce-2", request);
+
+        Assert.True(LevelXRequestSigning.VerifyRunRequest(
+            "secret", "/api/engineering/diagnostics/levelx/run", timestamp, "nonce-2", request, signature));
+
+        LevelXRunRequest tampered = request with { Level = EngineeringDiagnosticLevel.Level3Verification };
+        Assert.False(LevelXRequestSigning.VerifyRunRequest(
+            "secret", "/api/engineering/diagnostics/levelx/run", timestamp, "nonce-2", tampered, signature));
+    }
+
     [Fact]
     public void NonceCannotBeReused()
     {
