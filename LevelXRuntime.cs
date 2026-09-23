@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 
 public enum LevelXExecutionState
@@ -486,6 +487,7 @@ public static class LevelXRuntimeEndpoints
 
 public sealed class LevelXExecutionService
 {
+    private static readonly JsonSerializerOptions IntegrityJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IReadOnlyList<ILevelXLocalTest> tests;
     private readonly ILevelXRunStore store;
     private readonly LevelXExecutionOptions options;
@@ -729,7 +731,7 @@ public sealed class LevelXExecutionService
                 x.Code
             }).ToArray()
         };
-        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(payload, IntegrityJsonOptions);
         return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     }
 
