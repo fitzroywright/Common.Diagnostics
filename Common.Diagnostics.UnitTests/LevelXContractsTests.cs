@@ -80,6 +80,54 @@ public sealed class LevelXContractsTests
         Assert.Equal(run.RunId, run.CorrelationId);
     }
 
+
+    [Theory]
+    [InlineData(EngineeringDiagnosticLevel.Level5Scan, 5)]
+    [InlineData(EngineeringDiagnosticLevel.Level4Analysis, 5, 4)]
+    [InlineData(EngineeringDiagnosticLevel.Level3Verification, 5, 4, 3)]
+    [InlineData(EngineeringDiagnosticLevel.Level2Repair, 5, 4, 3, 2)]
+    [InlineData(EngineeringDiagnosticLevel.Level1CriticalIntervention, 5, 4, 3, 2, 1)]
+    public async Task RequestedLevel_RunsOnlyThatDepthAndAllLighterLevels(
+        EngineeringDiagnosticLevel requested,
+        params int[] expectedLevels)
+    {
+        TestRunStore store = new();
+        EngineeringDiagnosticEngine engine = new(store);
+        var executed = new List<int>();
+
+        EngineeringDiagnosticCheckDefinition[] definitions =
+        [
+            new("l5", "Level 5", EngineeringDiagnosticLevel.Level5Scan, _ => RecordAsync(5)),
+            new("l4", "Level 4", EngineeringDiagnosticLevel.Level4Analysis, _ => RecordAsync(4)),
+            new("l3", "Level 3", EngineeringDiagnosticLevel.Level3Verification, _ => RecordAsync(3)),
+            new("l2", "Level 2", EngineeringDiagnosticLevel.Level2Repair, _ => RecordAsync(2)),
+            new("l1", "Level 1", EngineeringDiagnosticLevel.Level1CriticalIntervention, _ => RecordAsync(1))
+        ];
+
+        async Task<EngineeringDiagnosticCheckResult> RecordAsync(int level)
+        {
+            executed.Add(level);
+            await Task.CompletedTask;
+            return EngineeringDiagnosticPolicy.Passed($"l{level}", $"Level {level}", "PASS");
+        }
+
+        string? reason = requested is EngineeringDiagnosticLevel.Level2Repair or EngineeringDiagnosticLevel.Level1CriticalIntervention
+            ? "unit-test"
+            : null;
+
+        await engine.RunAsync(
+            requested,
+            DiagnosticTarget.EntireControlPlane(),
+            "control-plane",
+            "Test",
+            "tester",
+            reason,
+            definitions,
+            CancellationToken.None);
+
+        Assert.Equal(expectedLevels, executed);
+    }
+
     private sealed class TestRunStore : IEngineeringDiagnosticRunStore
     {
         public Task<IReadOnlyList<EngineeringDiagnosticRun>> GetRecentAsync(int take, CancellationToken cancellationToken = default)
