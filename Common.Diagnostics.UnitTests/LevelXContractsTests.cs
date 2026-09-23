@@ -57,6 +57,21 @@ public sealed class LevelXContractsTests
         Assert.Equal(component, target.TargetId, ignoreCase: true);
     }
 
+    [Theory]
+    [InlineData("Common.Diagnostics")]
+    [InlineData("Common.Registration")]
+    [InlineData("Common.Security")]
+    [InlineData("Common.Secrets")]
+    [InlineData("Common.Messaging")]
+    [InlineData("Common.Storage")]
+    public void CommonComponents_AreValidTargets(string component)
+    {
+        DiagnosticTarget target = DiagnosticTarget.CommonComponent(component);
+        Assert.Equal(DiagnosticTargetType.CommonComponent, target.Type);
+        Assert.Equal(component, target.TargetId, ignoreCase: true);
+        Assert.Equal(component, target.Component, ignoreCase: true);
+    }
+
     [Fact]
     public async Task TargetAwareRun_PreservesTargetAndCorrelation()
     {
