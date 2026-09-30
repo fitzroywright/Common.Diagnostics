@@ -42,7 +42,7 @@ If an application has no critical external dependency to assess, `app.MapAegisHe
 
 Deployment automation may use `/health` for start/validate/rollback decisions. A temporary non-critical external outage should normally produce `Degraded`, not falsely report the application itself as dead. Failure of a dependency required for the application's core role should produce `Unhealthy`.
 
-## Starfleet Engineering Protocols
+## Engineering Diagnostic Protocols
 
 The existing Level 5 through Level 1 lifecycle is preserved:
 
