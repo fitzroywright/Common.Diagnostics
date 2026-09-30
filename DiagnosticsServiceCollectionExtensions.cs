@@ -21,6 +21,7 @@ public static class DiagnosticsServiceCollectionExtensions
         services.TryAddSingleton<IDiagnosticLevelRunStore, SqliteDiagnosticLevelRunStore>();
         services.TryAddSingleton<DiagnosticLevelNonceCache>();
         services.AddSingleton<DiagnosticLevelExecutionService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IDiagnosticLevelLocalTest, StandardDependencyDiagnosticLevelTest>());
 
         services.TryAddSingleton(new DiagnosticOperationsOptions());
         services.TryAddSingleton<IDiagnosticSuppressionStore, InMemoryDiagnosticSuppressionStore>();
