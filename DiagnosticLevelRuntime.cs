@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 public enum DiagnosticLevelExecutionState
@@ -638,7 +639,7 @@ public static class DiagnosticLevelRuntimeEndpoints
 public sealed class DiagnosticLevelExecutionService
 {
     private static readonly JsonSerializerOptions IntegrityJsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly IReadOnlyList<IDiagnosticLevelLocalTest> tests;
+    private readonly IServiceScopeFactory scopeFactory;
     private readonly IDiagnosticLevelRunStore store;
     private readonly DiagnosticLevelExecutionOptions options;
     private readonly IDiagnosticLevelCompletionNotifier completionNotifier;
@@ -646,18 +647,17 @@ public sealed class DiagnosticLevelExecutionService
     private readonly ConcurrentDictionary<string, ActiveRun> active = new(StringComparer.OrdinalIgnoreCase);
 
     public DiagnosticLevelExecutionService(
-        IEnumerable<IDiagnosticLevelLocalTest> tests,
+        IServiceScopeFactory scopeFactory,
         IDiagnosticLevelRunStore store,
         DiagnosticLevelExecutionOptions options,
         IDiagnosticLevelCompletionNotifier completionNotifier,
         ILogger<DiagnosticLevelExecutionService>? logger = null)
     {
-        this.tests = tests?.ToArray() ?? throw new ArgumentNullException(nameof(tests));
+        this.scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         this.store = store ?? throw new ArgumentNullException(nameof(store));
         this.options = options ?? throw new ArgumentNullException(nameof(options));
         this.completionNotifier = completionNotifier ?? throw new ArgumentNullException(nameof(completionNotifier));
         this.logger = logger;
-        ValidateCatalogue(this.tests);
     }
 
     public bool TryGetActive(string component, out Guid runId)
@@ -725,6 +725,12 @@ public sealed class DiagnosticLevelExecutionService
                 LastProgressAtUtc = started
             };
             await store.SaveAsync(current, CancellationToken.None).ConfigureAwait(false);
+
+            using IServiceScope scope = scopeFactory.CreateScope();
+            IDiagnosticLevelLocalTest[] tests = scope.ServiceProvider
+                .GetServices<IDiagnosticLevelLocalTest>()
+                .ToArray();
+            ValidateCatalogue(tests);
 
             IDiagnosticLevelLocalTest[] selected = tests
                 .Where(x => (int)x.Level >= (int)request.Level)
