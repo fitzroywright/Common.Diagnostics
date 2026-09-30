@@ -61,6 +61,33 @@ public sealed class DependencyDiagnosticRunnerTests
         Assert.Equal(2, level3Results.Count);
     }
 
+    [Fact]
+    public async Task StandardAggregatorReportsRegisteredProbeFailure()
+    {
+        IDependencyDiagnosticProbe probe = new StubProbe(
+            EngineeringDiagnosticLevel.Level3Verification,
+            new DependencyVerificationResult(
+                "Common.Storage",
+                "SharePoint",
+                DependencyDiagnosticKind.Storage,
+                true,
+                false,
+                false,
+                OperationalDiagnosticState.Failed,
+                DateTimeOffset.UtcNow,
+                TimeSpan.FromMilliseconds(20),
+                "SharePoint is unavailable.",
+                "HTTP=503",
+                "STORAGE_UNAVAILABLE"));
+
+        StandardDependencyDiagnosticLevelTest test = new([probe]);
+        EngineeringDiagnosticCheckResult result =
+            await test.RunAsync(CancellationToken.None);
+
+        Assert.Equal(EngineeringDiagnosticStatus.Failed, result.Status);
+        Assert.Contains("STORAGE_UNAVAILABLE", result.Evidence);
+    }
+
     private static DependencyVerificationResult Healthy(string component, string dependency) =>
         new(
             component,
