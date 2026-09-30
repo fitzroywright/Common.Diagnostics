@@ -85,7 +85,7 @@ public sealed record DiagnosticTarget(
 
 public static class EngineeringDiagnosticLevelSemantics
 {
-    public static IReadOnlyList<EngineeringDiagnosticLevel> StarfleetOrder { get; } =
+    public static IReadOnlyList<EngineeringDiagnosticLevel> LevelOrder { get; } =
     [
         EngineeringDiagnosticLevel.Level5Scan,
         EngineeringDiagnosticLevel.Level4Analysis,
