@@ -20,7 +20,7 @@ public sealed class DiagnosticLevelRuntimeTests
     [InlineData(EngineeringDiagnosticLevel.Level3Verification, 3)]
     [InlineData(EngineeringDiagnosticLevel.Level2Repair, 4)]
     [InlineData(EngineeringDiagnosticLevel.Level1CriticalIntervention, 5)]
-    public void StarfleetCumulativeSelectionIsNeverReversed(EngineeringDiagnosticLevel requested, int expected)
+    public void CumulativeSelectionIsNeverReversed(EngineeringDiagnosticLevel requested, int expected)
     {
         EngineeringDiagnosticLevel[] levels =
         [
