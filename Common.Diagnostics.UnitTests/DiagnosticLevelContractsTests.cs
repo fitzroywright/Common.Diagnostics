@@ -6,7 +6,7 @@ namespace Common.Diagnostics.UnitTests;
 public sealed class DiagnosticLevelContractsTests
 {
     [Fact]
-    public void StarfleetOrder_IsFiveThroughOne_WithIncreasingDepth()
+    public void LevelOrder_IsFiveThroughOne_WithIncreasingDepth()
     {
         Assert.Equal(
             [
@@ -16,9 +16,9 @@ public sealed class DiagnosticLevelContractsTests
                 EngineeringDiagnosticLevel.Level2Repair,
                 EngineeringDiagnosticLevel.Level1CriticalIntervention
             ],
-            EngineeringDiagnosticLevelSemantics.StarfleetOrder);
+            EngineeringDiagnosticLevelSemantics.LevelOrder);
 
-        int[] depths = EngineeringDiagnosticLevelSemantics.StarfleetOrder
+        int[] depths = EngineeringDiagnosticLevelSemantics.LevelOrder
             .Select(EngineeringDiagnosticLevelSemantics.Depth)
             .ToArray();
 
@@ -31,7 +31,7 @@ public sealed class DiagnosticLevelContractsTests
     [InlineData(EngineeringDiagnosticLevel.Level3Verification, false)]
     [InlineData(EngineeringDiagnosticLevel.Level2Repair, true)]
     [InlineData(EngineeringDiagnosticLevel.Level1CriticalIntervention, true)]
-    public void DisruptionRule_MatchesStarfleetDepth(EngineeringDiagnosticLevel level, bool disruptive)
+    public void DisruptionRule_MatchesDiagnosticDepth(EngineeringDiagnosticLevel level, bool disruptive)
         => Assert.Equal(disruptive, EngineeringDiagnosticLevelSemantics.IsDisruptive(level));
 
     [Fact]
