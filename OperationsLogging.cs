@@ -284,6 +284,7 @@ public sealed class OperationsLogLoggerProvider : ILoggerProvider, ISupportExter
         request.Headers.TryAddWithoutValidation("X-Aegis-Application-Id", credential.ApplicationId);
         request.Headers.TryAddWithoutValidation("X-Aegis-Instance-Id", credential.InstanceId);
         request.Headers.TryAddWithoutValidation("X-Aegis-Installation-Id", credential.InstallationId);
+        ApplicationRuntimeSession.Apply(request);
 
         string? correlation = records.Select(x => x.CorrelationId).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
         if (!string.IsNullOrWhiteSpace(correlation))

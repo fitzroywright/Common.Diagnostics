@@ -44,6 +44,8 @@ public sealed class HttpLifecycleEventSink : ILifecycleEventSink
         if (authorize is not null)
             await authorize(request, lifecycleEvent, cancellationToken).ConfigureAwait(false);
 
+        ApplicationRuntimeSession.Apply(request);
+
         using HttpResponseMessage response = await client
             .SendAsync(request, cancellationToken)
             .ConfigureAwait(false);

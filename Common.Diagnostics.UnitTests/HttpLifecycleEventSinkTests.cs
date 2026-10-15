@@ -30,6 +30,8 @@ public sealed class HttpLifecycleEventSinkTests
         Assert.NotNull(captured);
         Assert.Equal("corr-123", captured!.Headers.GetValues("X-Aegis-Correlation-Id").Single());
         Assert.Equal("Aegis.Hello", captured.Headers.GetValues("X-Aegis-Application-Id").Single());
+        Assert.Equal(ApplicationRuntimeSession.Id,
+            Assert.Single(captured.Headers.GetValues(ApplicationRuntimeSession.HeaderName)));
     }
 
     [Fact]
